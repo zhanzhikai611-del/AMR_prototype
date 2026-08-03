@@ -2,9 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const pages = {
-  "dashboard": "运行概览",
-  "digital-twin": "数字孪生",
-  "alert-center": "告警中心",
+  "dashboard": "运行总览",
   "traffic-overview": "交通态势",
   "traffic-resources": "管制资源",
   "traffic-records": "管制记录",

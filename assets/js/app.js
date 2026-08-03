@@ -3,20 +3,22 @@ const PAGE_ID = document.body.dataset.page || "dashboard";
 
 const NAV = [
   { id: "dashboard", label: "首页", file: "dashboard.html", children: [
-    ["dashboard", "运行概览", "OV"],
-    ["digital-twin", "数字孪生", "DT"],
-    ["alert-center", "告警中心", "AL"]
-  ]},
-  { id: "traffic", label: "交通管制", file: "traffic-overview.html", children: [
-    ["traffic-overview", "交通态势", "TF"],
-    ["traffic-resources", "管制资源", "RS"],
-    ["traffic-records", "管制记录", "RC"]
+    ["dashboard", "运行总览", "OV"]
   ]},
   { id: "dispatch", label: "派单管理", file: "task-list.html", children: [
     ["task-list", "任务列表", "TK"],
     ["task-create", "创建任务", "＋"],
     ["dispatch-strategies", "调度策略", "ST"],
     ["dispatch-records", "调度记录", "RC"]
+  ]},
+  { id: "traffic", label: "交通管制", file: "traffic-overview.html", children: [
+    ["traffic-overview", "交通态势", "TF"],
+    ["traffic-resources", "管制资源", "RS"],
+    ["traffic-records", "管制记录", "RC"]
+  ]},
+  { id: "behavior", label: "行为树管理", file: "behavior-trees.html", children: [
+    ["behavior-trees", "行为树列表", "BT"],
+    ["behavior-editor", "基础编辑示意", "ED"]
   ]},
   { id: "map", label: "地图管理", file: "map-editor.html", children: [
     ["map-editor", "地图编辑器", "ED"],
@@ -35,10 +37,6 @@ const NAV = [
     ["api-workbench", "测试工作台", "WB"],
     ["api-history", "请求历史", "HS"]
   ]},
-  { id: "behavior", label: "行为树管理", file: "behavior-trees.html", children: [
-    ["behavior-trees", "行为树列表", "BT"],
-    ["behavior-editor", "基础编辑示意", "ED"]
-  ]},
   { id: "settings", label: "平台设置", file: "users.html", children: [
     ["users", "用户管理", "US"],
     ["roles", "角色权限", "RL"],
@@ -50,9 +48,7 @@ const NAV = [
 ];
 
 const PAGE_META = {
-  dashboard: ["运行概览", "查看 AMR、任务、机台与研发服务的当前状态"],
-  "digital-twin": ["数字孪生", "按楼层与地图查看 AMR、任务、机台和交通状态"],
-  "alert-center": ["告警中心", "集中处理 AMR、设备、任务与平台运行异常"],
+  dashboard: ["运行总览", "当前阶段用于说明厂内物流数字孪生的展示范围与规划能力"],
   "traffic-overview": ["交通态势", "监控当前地图的路权、占用、等待队列与冲突状态"],
   "traffic-resources": ["管制资源", "管理路口、窄通道、区域及交通设备的运行规则"],
   "traffic-records": ["管制记录", "追踪路权申请、占用释放、冲突与人工干预记录"],
@@ -127,6 +123,7 @@ function iconBell() {
 function renderShell() {
   const module = moduleForPage(PAGE_ID);
   const meta = PAGE_META[PAGE_ID] || PAGE_META.dashboard;
+  const isHome = PAGE_ID === "dashboard";
   const primary = NAV.map(item => `<a class="${item.id === module.id ? "active" : ""}" href="${pageHref(item.file)}">${item.label}</a>`).join("");
   const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : "";
   const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID || child[0] === parentList ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
@@ -148,12 +145,12 @@ function renderShell() {
         <button class="avatar" aria-label="用户菜单">研</button>
       </div>
     </header>
-    <aside class="sidebar">
+    <aside class="sidebar ${isHome ? "home-hidden" : ""}">
       <div class="side-heading">${module.label}</div>
       <nav class="side-nav" aria-label="二级导航">${secondary}</nav>
       <div class="side-meta">平台版本 <b>UI 0.9.0</b><br>数据更新 <b id="liveClock">--:--:--</b></div>
     </aside>
-    <main class="app-main">
+    <main class="app-main ${isHome ? "home-main" : ""}">
       <section class="page-head">
         <div>
           <div class="breadcrumb">${breadcrumb}</div>
@@ -254,84 +251,135 @@ function factoryMap({ editor = false } = {}) {
   </svg>`;
 }
 
-function renderDashboard() {
-  setActions(`<button class="btn" data-go="operation-logs.html">查看事件</button><button class="btn primary" data-go="task-create.html">＋ 创建任务</button>`);
+function occupancyGridMap() {
+  const scanPoints = [
+    [92,92],[104,94],[118,91],[132,95],[146,92],[160,94],[174,91],[188,95],[202,92],[216,94],[230,91],
+    [92,112],[91,132],[94,152],[92,172],[95,192],[92,212],[93,232],[91,252],[94,272],[92,292],[95,312],[92,332],[94,352],[92,372],[95,392],[92,412],
+    [244,93],[264,91],[284,94],[304,92],[324,95],[344,92],[364,94],[384,91],[404,95],[424,92],[444,94],[464,91],[484,95],[504,92],[524,94],[544,91],[564,95],[584,92],[604,94],[624,92],[644,95],[665,92],
+    [665,112],[668,132],[665,152],[667,172],[664,192],[668,212],[665,232],[667,252],[664,272],[668,292],[665,312],[667,332],[665,352],[668,372],[665,392],[667,412],
+    [112,430],[132,427],[152,431],[172,428],[192,430],[212,427],[232,431],[252,428],[272,430],[292,427],[312,431],[332,428],[352,430],[372,427],[392,431],[412,428],[432,430],[452,427],[472,431],[492,428],[512,430],[532,427],[552,431],[572,428],[592,430],[612,427],[632,431],[652,428],
+    [176,156],[181,174],[178,192],[182,210],[179,228],[181,246],[178,264],[181,282],[179,300],[181,318],
+    [286,146],[304,148],[322,145],[340,149],[358,146],[376,148],[394,145],[412,149],[430,146],[448,148],[466,145],[484,149],[502,146],[520,148],[538,145],[556,149],
+    [286,332],[304,334],[322,331],[340,335],[358,332],[376,334],[394,331],[412,335],[430,332],[448,334],[466,331],[484,335],[502,332],[520,334],[538,331],[556,335]
+  ];
+  return `<svg class="occupancy-map" viewBox="0 0 760 520" role="img" aria-label="AMR 激光雷达静态栅格点阵地图">
+    <defs>
+      <pattern id="occGrid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#d9dee2" stroke-width=".6"/></pattern>
+      <filter id="pointSoft"><feGaussianBlur stdDeviation="1.2"/></filter>
+    </defs>
+    <rect width="760" height="520" fill="#c9ced2"/>
+    <path d="M38 40H718V472H38Z M75 72V445H692V72Z" fill="#70777d" fill-rule="evenodd" opacity=".36"/>
+    <rect x="75" y="72" width="617" height="373" fill="#f3f5f6"/>
+    <rect x="75" y="72" width="617" height="373" fill="url(#occGrid)" opacity=".7"/>
+    <path d="M96 96H237V134H178V318H253V406H96ZM279 112H578V178H528V302H578V406H279V350H246V134H279Z" fill="#171b1e" opacity=".9"/>
+    <path d="M117 114H218V122H158V298H236V388H116V374H218V336H158V134H117ZM300 132H558V158H508V322H558V386H300V366H538V342H488V138H300Z" fill="#7c8489" opacity=".55"/>
+    <g fill="#121619">${scanPoints.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.2"/>`).join("")}</g>
+    <g fill="#343a3e" opacity=".4" filter="url(#pointSoft)">${scanPoints.filter((_,i)=>i%3===0).map(p=>`<circle cx="${p[0]+4}" cy="${p[1]-3}" r="4"/>`).join("")}</g>
+    <g fill="#52595e" opacity=".65"><circle cx="122" cy="186" r="2"/><circle cx="129" cy="191" r="1.5"/><circle cx="137" cy="188" r="2"/><circle cx="214" cy="238" r="2"/><circle cx="221" cy="244" r="1.6"/><circle cx="590" cy="212" r="2"/><circle cx="598" cy="218" r="1.7"/><circle cx="608" cy="214" r="2"/><circle cx="619" cy="365" r="2"/><circle cx="626" cy="371" r="1.5"/></g>
+    <path d="M122 350H226V310H370V236H548V350H610" fill="none" stroke="#1683f5" stroke-width="3" opacity=".82"/>
+    <path d="M122 350H226V310H370" fill="none" stroke="#55b7ff" stroke-width="8" opacity=".16"/>
+    <g fill="#fff" stroke="#1683f5" stroke-width="3"><circle cx="122" cy="350" r="7"/><circle cx="226" cy="310" r="6"/><circle cx="370" cy="236" r="6"/><circle cx="548" cy="350" r="6"/><circle cx="610" cy="350" r="7"/></g>
+    <g transform="translate(371 236)"><circle r="13" fill="#1683f5"/><path d="M0-8L6 7L0 4L-6 7Z" fill="#fff"/></g>
+    <g class="occ-meta"><rect x="88" y="84" width="154" height="32" rx="3"/><text x="99" y="97">SLAM OCCUPANCY GRID</text><text x="99" y="108">RES 0.05 m · 760 × 520 px</text></g>
+    <g class="occ-scale"><line x1="590" y1="426" x2="670" y2="426"/><line x1="590" y1="421" x2="590" y2="431"/><line x1="670" y1="421" x2="670" y2="431"/><text x="622" y="418">5 m</text></g>
+    <g class="occ-origin" transform="translate(108 420)"><line x1="0" y1="0" x2="24" y2="0"/><line x1="0" y1="0" x2="0" y2="-24"/><text x="28" y="4">X</text><text x="-4" y="-29">Y</text><text x="8" y="16">MAP ORIGIN</text></g>
+  </svg>`;
+}
+
+function renderDashboardCockpit() {
+  setActions(`<button class="btn" data-go="traffic-overview.html">交通态势</button><button class="btn primary" data-go="task-create.html">＋ 创建任务</button>`);
   content(`
-    <div class="status-rail">
-      <div class="rail-node"><span class="rail-dot">SYS</span><span class="rail-copy"><small>平台服务</small><strong>8 / 8 正常</strong></span></div>
-      <div class="rail-node"><span class="rail-dot">AMR</span><span class="rail-copy"><small>车辆在线</small><strong>6 / 6 在线</strong></span></div>
-      <div class="rail-node"><span class="rail-dot">TSK</span><span class="rail-copy"><small>任务队列</small><strong>3 执行中</strong></span></div>
-      <div class="rail-node attention"><span class="rail-dot">CNC</span><span class="rail-copy"><small>机台状态</small><strong>1 项待处理</strong></span></div>
-      <div class="rail-node"><span class="rail-dot">API</span><span class="rail-copy"><small>接口健康</small><strong>42 ms</strong></span></div>
-    </div>
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">AMR 在线</div><div class="stat-value">6<small>/ 6 台</small></div><span class="stat-foot">在线率 100%</span></div>
-      <div class="stat-card cyan"><div class="stat-label">执行中任务</div><div class="stat-value">3<small>条</small></div><span class="stat-foot">待调度 2</span></div>
-      <div class="stat-card amber"><div class="stat-label">等待 AMR 的机台</div><div class="stat-value">2<small>台</small></div><span class="stat-foot">最长 04:18</span></div>
-      <div class="stat-card red"><div class="stat-label">当前异常</div><div class="stat-value">1<small>项</small></div><span class="stat-foot">AMR-06</span></div>
-    </div>
-    <section class="panel">
-      <div class="panel-head"><span class="panel-title">快捷操作 <span class="panel-subtitle">常用研发与演示入口</span></span></div>
-      <div class="panel-body quick-actions">
-        <button class="quick-card" data-go="task-create.html"><span class="quick-icon">＋</span><span><strong>创建物流任务</strong><small>选择起终点与执行车辆</small></span></button>
-        <button class="quick-card" data-go="digital-twin.html"><span class="quick-icon">DT</span><span><strong>打开数字孪生</strong><small>查看车辆、任务和机台联动</small></span></button>
-        <button class="quick-card" data-go="map-editor.html"><span class="quick-icon">ED</span><span><strong>编辑当前地图</strong><small>修改道路、点位和设备</small></span></button>
-        <button class="quick-card" data-go="api-workbench.html"><span class="quick-icon">API</span><span><strong>打开 API 测试</strong><small>发送请求并检查响应</small></span></button>
-      </div>
-    </section>
-    <div class="home-layout">
-      <section class="panel">
-        <div class="panel-head"><span class="panel-title">任务节拍 <span class="panel-subtitle">最近 8 小时</span></span><button class="btn ghost small" data-go="task-list.html">查看全部 →</button></div>
-        <div class="panel-body">
-          <div class="chart"><div class="chart-grid"><span></span><span></span><span></span><span></span></div><div class="bars">
-            ${[44,58,53,72,66,84,77,61].map((h,i)=>`<span class="bar ${i>4?"cyan":""}" style="height:${h}%" data-label="${String(i+3).padStart(2,"0")}:00"></span>`).join("")}
-          </div></div>
+    <div class="overview-cockpit">
+      <aside class="overview-side">
+        <section class="overview-health">
+          <div class="overview-section-head"><span>运行状态</span>${badge("LIVE","blue")}</div>
+          <div class="overview-metric"><span>AMR 在线</span><strong>6 <small>/ 6</small></strong><i class="health-ok">100%</i></div>
+          <div class="overview-metric"><span>执行中任务</span><strong>3</strong><i>待调度 2</i></div>
+          <div class="overview-metric"><span>等待机台</span><strong>2</strong><i class="health-warn">最长 04:18</i></div>
+          <div class="overview-metric"><span>交通占用</span><strong>4</strong><i>1 台等待</i></div>
+        </section>
+        <section class="overview-panel compact-list">
+          <div class="overview-section-head"><span>AMR 状态</span><button data-go="agv-list.html">全部 →</button></div>
+          ${AMRS.slice(0,5).map(a=>`<div class="overview-row" data-go="agv-detail.html"><span class="unit-dot ${a[5]}"></span><span><b>${a[0]}</b><small>${a[3]}</small></span><em>${a[1]}</em></div>`).join("")}
+        </section>
+      </aside>
+      <section class="overview-map">
+        <div class="overview-map-head">
+          <div><span class="scope-kicker">数字孪生 · 当前运行范围</span><strong>2F / MAP-A · 装配物流区</strong></div>
+          <div class="map-legend"><span><i class="blue"></i>执行中</span><span><i class="amber"></i>等待</span><span><i class="red"></i>异常</span></div>
         </div>
+        <div class="overview-map-stage">${factoryMap()}</div>
+        <div class="overview-map-foot"><span>AMR 6 · 设备 14 · 任务 5</span><span>最后更新 <b id="mapClock">--:--:--</b></span></div>
       </section>
-      <section class="panel">
-        <div class="panel-head"><span class="panel-title">车辆运行构成</span><button class="btn ghost small" data-go="agv-list.html">AMR 管理 →</button></div>
-        <div class="donut-wrap">
-          <div class="donut"></div>
-          <div class="legend">
-            <div class="legend-row"><i class="legend-color"></i><span>任务执行</span><b>52%</b></div>
-            <div class="legend-row"><i class="legend-color" style="background:var(--cyan)"></i><span>空闲等待</span><b>22%</b></div>
-            <div class="legend-row"><i class="legend-color" style="background:var(--amber)"></i><span>充电维护</span><b>15%</b></div>
-            <div class="legend-row"><i class="legend-color" style="background:#dfe6eb"></i><span>异常停机</span><b>11%</b></div>
-          </div>
-        </div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><span class="panel-title">当前任务</span><button class="btn ghost small" data-go="task-list.html">任务列表 →</button></div>
-        <div class="panel-body mini-list">
-          ${TASKS.slice(0,4).map(t=>`<div class="mini-row js-detail" data-kind="任务" data-id="${t[0]}"><span><strong>${t[0]} · ${t[1]}</strong><small>${t[2]} → ${t[3]} · ${t[4]}</small></span>${badge(t[5],statusTone(t[5]))}</div>`).join("")}
-        </div>
-      </section>
-      <section class="panel">
-        <div class="panel-head"><span class="panel-title">最近事件</span><button class="btn ghost small" data-go="operation-logs.html">操作日志 →</button></div>
-        <div class="panel-body timeline">
-          <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>AMR-03 到达 CNC-07</strong><small>10:47:28 · TSK-260731-021</small></span></div>
-          <div class="timeline-item"><i class="time-dot" style="background:var(--amber);box-shadow:0 0 0 1px var(--amber)"></i><span class="timeline-copy"><strong>CNC-03 开始等待 AMR</strong><small>10:45:12 · 已等待 02:16</small></span></div>
-          <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>AMR-02 接收线边补料任务</strong><small>10:42:08 · 自动分配</small></span></div>
-        </div>
-      </section>
+      <aside class="overview-side right">
+        <section class="overview-panel task-feed">
+          <div class="overview-section-head"><span>当前任务</span><button data-go="task-list.html">全部 →</button></div>
+          ${TASKS.slice(0,3).map(t=>`<div class="overview-task"><div><b>${t[0]}</b>${badge(t[5],statusTone(t[5]))}</div><strong>${t[2]} → ${t[3]}</strong><small>${t[1]} · ${t[4]}</small></div>`).join("")}
+        </section>
+        <section class="overview-panel alert-feed">
+          <div class="overview-section-head"><span>运行异常</span><button data-go="operation-logs.html">记录 →</button></div>
+          <div class="overview-alert critical"><span>严重</span><div><b>AMR-06 驱动器温度异常</b><small>10:46:02 · 已安全停车</small></div></div>
+          <div class="overview-alert warning"><span>警告</span><div><b>CNC-03 等待 AMR 超时</b><small>10:45:12 · 已等待 02:16</small></div></div>
+          <div class="overview-alert warning"><span>警告</span><div><b>ZONE-A3 路权等待偏长</b><small>10:43:48 · AMR-05</small></div></div>
+        </section>
+        <div class="overview-actions"><button data-go="map-editor.html">编辑地图</button><button data-go="api-workbench.html">API 测试</button></div>
+      </aside>
     </div>
   `);
 }
 
-function renderDigitalTwin() {
+function renderDashboard() {
   setActions("");
   content(`
-    <section class="feature-placeholder">
-      <div class="feature-symbol">DT</div>
-      <span class="feature-kicker">功能示意</span>
-      <h2>数字孪生</h2>
-      <p>根据顶部全局运行范围，展示当前楼层与地图中的 AMR、机台设备、任务路线和交通状态。</p>
-      <div class="feature-scope">
-        <span>当前运行范围</span>
-        <strong class="js-current-context">2F / MAP-A</strong>
+    <section class="twin-hud">
+      <div class="hud-topline">
+        <div class="hud-scope"><span>DIGITAL TWIN</span><strong class="js-current-context">2F / MAP-A</strong></div>
+        <div class="hud-kpi"><span>AMR 在线</span><strong>6 <small>/ 6</small></strong><i class="ok">100%</i></div>
+        <div class="hud-kpi"><span>执行中任务</span><strong>3</strong><i>待调度 2</i></div>
+        <div class="hud-kpi"><span>设备在线</span><strong>14 <small>/ 14</small></strong><i class="ok">正常</i></div>
+        <div class="hud-kpi"><span>交通占用</span><strong>4</strong><i class="warn">1 台等待</i></div>
+        <div class="hud-kpi alert"><span>当前告警</span><strong>3</strong><i>严重 1</i></div>
       </div>
-      <div class="feature-notes">
-        <span>AMR 实时位置</span><span>设备运行状态</span><span>任务执行路线</span><span>交通资源占用</span>
+      <div class="hud-body">
+        <aside class="hud-side left">
+          <div class="hud-block utilization">
+            <div class="hud-title">AMR运行概览</div>
+            <div class="util-ring"><strong>81.5%</strong><span>任务利用率</span></div>
+            <div class="hud-state-grid"><span><b>3</b>执行中</span><span><b>1</b>等待</span><span><b>1</b>充电</span><span class="danger"><b>1</b>异常</span></div>
+          </div>
+          <div class="hud-block battery-block">
+            <div class="hud-title">电池电量分布</div>
+            <div class="battery-band"><span><i style="height:24%"></i><b>0</b><small>0–20%</small></span><span><i style="height:42%"></i><b>1</b><small>20–50%</small></span><span><i style="height:64%"></i><b>2</b><small>50–80%</small></span><span><i style="height:88%"></i><b>3</b><small>80–100%</small></span></div>
+          </div>
+          <div class="hud-block hud-amr-list">
+            <div class="hud-title">AMR状态</div>
+            ${AMRS.slice(0,4).map(a=>`<div><span class="unit-dot ${a[5]}"></span><b>${a[0]}</b><em>${a[2]}</em><small>${a[1]}</small></div>`).join("")}
+          </div>
+        </aside>
+        <div class="twin-stage-copy">
+          <div class="twin-axis x"></div><div class="twin-axis y"></div>
+          <span class="feature-kicker">功能规划 · 尚未接入孪生引擎</span>
+          <h2>厂内物流数字孪生</h2>
+          <p>未来将在此呈现当前楼层与地图的空间模型，并实时映射AMR位置、机台状态、任务路径和交通资源。</p>
+          <div class="twin-capabilities"><span>AMR实时位置</span><span>机台设备状态</span><span>任务执行路径</span><span>交通资源占用</span></div>
+          <small>运行范围由顶部全局筛选控制</small>
+        </div>
+        <aside class="hud-side right">
+          <div class="hud-block hud-task-list">
+            <div class="hud-title">当前任务 <span>3 条执行中</span></div>
+            ${TASKS.slice(0,3).map(t=>`<div><span><b>${t[0]}</b><small>${t[2]} → ${t[3]}</small></span>${badge(t[5],statusTone(t[5]))}</div>`).join("")}
+          </div>
+          <div class="hud-block traffic-mini">
+            <div class="hud-title">交通资源</div>
+            <div><span>已占用<strong>4</strong></span><span>等待路权<strong>1</strong></span><span>临时封锁<strong>1</strong></span></div>
+          </div>
+          <div class="hud-block hud-alert-list">
+            <div class="hud-title">运行异常 <span>最近更新</span></div>
+            <div class="critical"><i>严重</i><span><b>AMR-06 驱动器温度异常</b><small>14:06:02 · 已安全停车</small></span></div>
+            <div><i>警告</i><span><b>CNC-03 等待AMR超时</b><small>14:05:12 · 已等待 02:16</small></span></div>
+            <div><i>警告</i><span><b>ZONE-A3 路权等待偏长</b><small>14:03:48 · AMR-05</small></span></div>
+          </div>
+        </aside>
       </div>
     </section>
   `);
@@ -479,7 +527,7 @@ function renderMapEditor() {
       </aside>
       <section class="map-pane" id="editorMap">
         <div class="map-toolbar"><button class="map-tool">−</button><button class="map-tool">100%</button><button class="map-tool">＋</button><button class="map-tool">适应画布</button></div>
-        <div class="map-stage">${factoryMap({editor:true})}</div>
+        <div class="map-stage editor-occupancy-stage">${occupancyGridMap()}</div>
         <div class="validation-bar" id="validationBar"><b>V1.9 草稿就绪</b><span class="muted">扫描底图不会直接覆盖运行版本；完成业务图层配置、校验并发布后生效</span></div>
       </section>
       <aside class="work-pane">
@@ -1124,8 +1172,6 @@ function updateClock() {
 
 function renderPage() {
   if (PAGE_ID === "dashboard") return renderDashboard();
-  if (PAGE_ID === "digital-twin") return renderDigitalTwin();
-  if (PAGE_ID === "alert-center") return renderAlertCenter();
   if (PAGE_ID.startsWith("traffic-")) return renderTraffic();
   if (PAGE_ID === "map-list") return renderMapList();
   if (PAGE_ID === "map-editor") return renderMapEditor();
