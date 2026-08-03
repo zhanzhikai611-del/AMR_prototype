@@ -3,10 +3,13 @@ const path = require("path");
 
 const pages = {
   "dashboard": "运行概览",
-  "simulation-live": "实时控制",
-  "simulation-scenes": "控制场景",
-  "map-list": "地图列表",
+  "digital-twin": "数字孪生",
+  "alert-center": "告警中心",
+  "traffic-overview": "交通态势",
+  "traffic-resources": "管制资源",
+  "traffic-records": "管制记录",
   "map-editor": "地图编辑器",
+  "map-list": "地图管理",
   "task-list": "任务列表",
   "task-create": "创建任务",
   "dispatch-strategies": "调度策略",

@@ -3,11 +3,14 @@ const PAGE_ID = document.body.dataset.page || "dashboard";
 
 const NAV = [
   { id: "dashboard", label: "首页", file: "dashboard.html", children: [
-    ["dashboard", "运行概览", "OV"]
+    ["dashboard", "运行概览", "OV"],
+    ["digital-twin", "数字孪生", "DT"],
+    ["alert-center", "告警中心", "AL"]
   ]},
-  { id: "simulation", label: "实时控制", file: "simulation-live.html", children: [
-    ["simulation-live", "实时控制", "RT"],
-    ["simulation-scenes", "控制场景", "SC"]
+  { id: "traffic", label: "交通管制", file: "traffic-overview.html", children: [
+    ["traffic-overview", "交通态势", "TF"],
+    ["traffic-resources", "管制资源", "RS"],
+    ["traffic-records", "管制记录", "RC"]
   ]},
   { id: "dispatch", label: "派单管理", file: "task-list.html", children: [
     ["task-list", "任务列表", "TK"],
@@ -15,18 +18,16 @@ const NAV = [
     ["dispatch-strategies", "调度策略", "ST"],
     ["dispatch-records", "调度记录", "RC"]
   ]},
-  { id: "map", label: "地图编辑", file: "map-list.html", children: [
-    ["map-list", "地图列表", "MP"],
-    ["map-editor", "地图编辑器", "ED"]
+  { id: "map", label: "地图管理", file: "map-editor.html", children: [
+    ["map-editor", "地图编辑器", "ED"],
+    ["map-list", "地图管理", "MP"]
   ]},
   { id: "agv", label: "AMR 管理", file: "agv-list.html", children: [
     ["agv-list", "AMR 列表", "AM"],
-    ["agv-detail", "AMR 详情", "DT"],
     ["agv-models", "型号配置", "MD"]
   ]},
   { id: "device", label: "设备管理", file: "device-list.html", children: [
     ["device-list", "设备列表", "DV"],
-    ["device-detail", "设备详情", "DT"],
     ["device-types", "设备类型", "TP"]
   ]},
   { id: "api", label: "API 测试", file: "api-catalog.html", children: [
@@ -50,10 +51,13 @@ const NAV = [
 
 const PAGE_META = {
   dashboard: ["运行概览", "查看 AMR、任务、机台与研发服务的当前状态"],
-  "simulation-live": ["实时控制", "在同一张地图中观察车辆、任务路线和机台联动"],
-  "simulation-scenes": ["控制场景", "管理研发联调与演示使用的可复现场景"],
-  "map-list": ["地图列表", "管理实时控制使用的地图版本与发布状态"],
-  "map-editor": ["地图编辑器", "编辑道路、点位、区域与机台映射"],
+  "digital-twin": ["数字孪生", "按楼层与地图查看 AMR、任务、机台和交通状态"],
+  "alert-center": ["告警中心", "集中处理 AMR、设备、任务与平台运行异常"],
+  "traffic-overview": ["交通态势", "监控当前地图的路权、占用、等待队列与冲突状态"],
+  "traffic-resources": ["管制资源", "管理路口、窄通道、区域及交通设备的运行规则"],
+  "traffic-records": ["管制记录", "追踪路权申请、占用释放、冲突与人工干预记录"],
+  "map-editor": ["地图编辑器", "编辑全局运行范围中当前选中的地图及其业务图层"],
+  "map-list": ["地图管理", "创建地图记录并管理楼层归属、来源、版本与发布状态"],
   "task-list": ["任务列表", "查看任务队列、执行状态和失败原因"],
   "task-create": ["创建任务", "选择起终点与 AMR，创建一条厂内物流任务"],
   "dispatch-strategies": ["调度策略", "配置研发提供的调度类型和可调参数"],
@@ -107,6 +111,8 @@ const DEVICES = [
 ];
 
 function moduleForPage(pageId) {
+  if (pageId === "agv-detail") return NAV.find(item => item.id === "agv");
+  if (pageId === "device-detail") return NAV.find(item => item.id === "device");
   return NAV.find(item => item.children.some(child => child[0] === pageId)) || NAV[0];
 }
 
@@ -122,7 +128,9 @@ function renderShell() {
   const module = moduleForPage(PAGE_ID);
   const meta = PAGE_META[PAGE_ID] || PAGE_META.dashboard;
   const primary = NAV.map(item => `<a class="${item.id === module.id ? "active" : ""}" href="${pageHref(item.file)}">${item.label}</a>`).join("");
-  const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
+  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : "";
+  const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID || child[0] === parentList ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
+  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : `${module.label} / ${meta[0]}`;
 
   document.body.innerHTML = `
     <header class="topbar">
@@ -132,6 +140,9 @@ function renderShell() {
       </a>
       <nav class="primary-nav" aria-label="一级导航">${primary}</nav>
       <div class="top-actions">
+        <button class="global-context js-global-context" aria-label="切换全局运行范围">
+          <span>运行范围</span><strong class="js-current-context">2F / MAP-A</strong><i>⌄</i>
+        </button>
         <span class="connection-pill"><i class="dot"></i>服务正常</span>
         <button class="top-icon" aria-label="通知">${iconBell()}</button>
         <button class="avatar" aria-label="用户菜单">研</button>
@@ -140,12 +151,12 @@ function renderShell() {
     <aside class="sidebar">
       <div class="side-heading">${module.label}</div>
       <nav class="side-nav" aria-label="二级导航">${secondary}</nav>
-      <div class="side-meta">环境版本 <b>SIM 0.8.4</b><br>数据更新 <b id="liveClock">--:--:--</b></div>
+      <div class="side-meta">平台版本 <b>UI 0.9.0</b><br>数据更新 <b id="liveClock">--:--:--</b></div>
     </aside>
     <main class="app-main">
       <section class="page-head">
         <div>
-          <div class="breadcrumb">${module.label} / ${meta[0]}</div>
+          <div class="breadcrumb">${breadcrumb}</div>
           <h1 class="page-title">${meta[0]}</h1>
           <p class="page-description">${meta[1]}</p>
         </div>
@@ -263,7 +274,7 @@ function renderDashboard() {
       <div class="panel-head"><span class="panel-title">快捷操作 <span class="panel-subtitle">常用研发与演示入口</span></span></div>
       <div class="panel-body quick-actions">
         <button class="quick-card" data-go="task-create.html"><span class="quick-icon">＋</span><span><strong>创建物流任务</strong><small>选择起终点与执行车辆</small></span></button>
-        <button class="quick-card" data-go="simulation-live.html"><span class="quick-icon">RT</span><span><strong>进入实时仿真</strong><small>查看车辆和机台联动</small></span></button>
+        <button class="quick-card" data-go="digital-twin.html"><span class="quick-icon">DT</span><span><strong>打开数字孪生</strong><small>查看车辆、任务和机台联动</small></span></button>
         <button class="quick-card" data-go="map-editor.html"><span class="quick-icon">ED</span><span><strong>编辑当前地图</strong><small>修改道路、点位和设备</small></span></button>
         <button class="quick-card" data-go="api-workbench.html"><span class="quick-icon">API</span><span><strong>打开 API 测试</strong><small>发送请求并检查响应</small></span></button>
       </div>
@@ -307,82 +318,149 @@ function renderDashboard() {
   `);
 }
 
-function renderSimulation() {
-  const scenes = PAGE_ID === "simulation-scenes";
-  if (scenes) return renderSceneList();
-  setActions(`<button class="btn js-sim-reset">重置仿真</button><button class="btn primary" data-go="task-create.html">＋ 创建任务</button>`);
+function renderDigitalTwin() {
+  setActions("");
   content(`
-    <div class="sim-shell" id="simShell">
+    <section class="feature-placeholder">
+      <div class="feature-symbol">DT</div>
+      <span class="feature-kicker">功能示意</span>
+      <h2>数字孪生</h2>
+      <p>根据顶部全局运行范围，展示当前楼层与地图中的 AMR、机台设备、任务路线和交通状态。</p>
+      <div class="feature-scope">
+        <span>当前运行范围</span>
+        <strong class="js-current-context">2F / MAP-A</strong>
+      </div>
+      <div class="feature-notes">
+        <span>AMR 实时位置</span><span>设备运行状态</span><span>任务执行路线</span><span>交通资源占用</span>
+      </div>
+    </section>
+  `);
+}
+
+function renderAlertCenter() {
+  setActions(`<button class="btn js-toast" data-message="告警列表已导出">导出记录</button><button class="btn primary js-toast" data-message="已批量确认所选告警">批量确认</button>`);
+  const alerts = [
+    ["ALT-260803-031", "严重", "AMR", "AMR-06", "驱动器温度超过安全阈值", "未确认", "2F / MAP-A", "10:46:02"],
+    ["ALT-260803-030", "警告", "设备", "CNC-03", "等待 AMR 时间超过 2 分钟", "处理中", "2F / MAP-A", "10:45:12"],
+    ["ALT-260803-029", "警告", "交通", "ZONE-A3", "路段资源等待时间偏长", "未确认", "2F / MAP-A", "10:43:48"],
+    ["ALT-260803-028", "提示", "任务", "TSK-260803-018", "任务已自动重试一次", "已恢复", "2F / MAP-A", "10:39:26"],
+    ["ALT-260803-027", "警告", "设备", "CNC-08", "设备心跳延迟 6.4 秒", "已确认", "1F / MAP-B", "10:32:15"],
+    ["ALT-260803-026", "提示", "AMR", "AMR-04", "电量低于 45%，已生成充电任务", "已恢复", "2F / MAP-A", "10:28:44"]
+  ].map(row => {
+    const levelTone = row[1] === "严重" ? "red" : row[1] === "警告" ? "amber" : "blue";
+    const stateTone = row[5] === "已恢复" ? "green" : row[5] === "处理中" ? "blue" : row[5] === "已确认" ? "gray" : "red";
+    return `<tr class="js-detail" data-kind="告警" data-id="${row[0]}"><td><input type="checkbox" aria-label="选择 ${row[0]}"></td><td class="id">${row[0]}</td><td>${badge(row[1], levelTone)}</td><td>${row[2]}</td><td><b>${row[3]}</b></td><td>${row[4]}</td><td>${badge(row[5], stateTone)}</td><td class="mono muted">${row[6]}</td><td class="mono muted">${row[7]}</td><td><button class="btn small">处理</button></td></tr>`;
+  });
+  content(`
+    <div class="stats-row alert-stats">
+      <div class="stat-card red"><div class="stat-label">当前未恢复</div><div class="stat-value">3<small>条</small></div><span class="stat-foot">较昨日 -2</span></div>
+      <div class="stat-card amber"><div class="stat-label">严重告警</div><div class="stat-value">1<small>条</small></div><span class="stat-foot">AMR-06</span></div>
+      <div class="stat-card cyan"><div class="stat-label">处理中</div><div class="stat-value">1<small>条</small></div><span class="stat-foot">平均响应 46 秒</span></div>
+      <div class="stat-card"><div class="stat-label">今日累计</div><div class="stat-value">12<small>条</small></div><span class="stat-foot">恢复率 75%</span></div>
+    </div>
+    ${toolbar({search:"搜索告警编号、对象或内容", filters:["全部级别", "全部来源", "全部状态"], right:`<select class="select"><option>2F / MAP-A</option><option>全部楼层和地图</option></select>`})}
+    ${table(["", "告警编号", "级别", "来源", "告警对象", "告警内容", "状态", "楼层 / 地图", "发生时间", "操作"], alerts, ["38px", "130px", "72px", "68px", "105px", "24%", "82px", "120px", "86px", "72px"])}
+  `);
+}
+
+function renderTraffic() {
+  if (PAGE_ID === "traffic-resources") return renderTrafficResources();
+  if (PAGE_ID === "traffic-records") return renderTrafficRecords();
+  setActions(`<button class="btn js-toast" data-message="当前有 1 台 AMR 等待路权">查看等待队列</button><button class="btn primary js-traffic-block">临时封锁路段</button>`);
+  content(`
+    <div class="traffic-shell">
       <aside class="work-pane">
-        <div class="pane-head"><span class="pane-title">现场对象</span>${badge("LIVE","blue")}</div>
-        <div class="tabs"><button class="tab active">AMR</button><button class="tab">任务</button><button class="tab">设备</button></div>
+        <div class="pane-head"><span class="pane-title">交通资源</span>${badge("LIVE","blue")}</div>
+        <div class="tabs"><button class="tab active">区域</button><button class="tab">队列</button><button class="tab">设备</button></div>
         <div class="object-list">
-          ${AMRS.map((a,i)=>`<div class="object-row ${i===2?"active":""} js-object" data-object="${a[0]}"><span class="object-symbol ${a[5]==="amber"?"warn":""}">${a[0].slice(-2)}</span><span class="object-copy"><strong>${a[0]} · ${a[1]}</strong><small>${a[2]} · ${a[3]}</small></span>${a[5]==="red"?badge("异常","red"):""}</div>`).join("")}
+          <div class="object-row active js-object" data-object="ZONE-A3"><span class="object-symbol">A3</span><span class="object-copy"><strong>ZONE-A3 · 窄通道</strong><small>AMR-02 占用</small></span>${badge("占用","blue")}</div>
+          <div class="object-row js-object" data-object="INT-01"><span class="object-symbol machine">I1</span><span class="object-copy"><strong>INT-01 · 交叉路口</strong><small>AMR-03 已授权</small></span>${badge("授权","cyan")}</div>
+          <div class="object-row js-object" data-object="GATE-02"><span class="object-symbol safe">G2</span><span class="object-copy"><strong>GATE-02 · 自动门</strong><small>空闲 · 可用</small></span></div>
+          <div class="object-row js-object" data-object="LIFT-01"><span class="object-symbol warn">L1</span><span class="object-copy"><strong>LIFT-01 · 电梯</strong><small>AMR-05 等待</small></span>${badge("等待","amber")}</div>
+          <div class="object-row js-object" data-object="ZONE-B2"><span class="object-symbol danger">B2</span><span class="object-copy"><strong>ZONE-B2 · 会车区</strong><small>人工临时封锁</small></span>${badge("封锁","red")}</div>
         </div>
       </aside>
       <section class="map-pane">
         <div class="map-toolbar">
-          <button class="map-tool active js-sim-toggle">Ⅱ 暂停</button>
-          <button class="map-tool js-sim-step">单步</button>
-          <button class="map-tool js-speed">1×</button>
-          <button class="map-tool">图层</button>
+          <button class="map-tool active js-traffic-layer">车辆</button>
+          <button class="map-tool active js-traffic-layer">计划路线</button>
+          <button class="map-tool active js-traffic-layer">占用资源</button>
+          <button class="map-tool js-traffic-layer">冲突</button>
         </div>
         <div class="map-stage">${factoryMap()}</div>
-        <div class="map-footer"><span>MAP-A · 装配物流区</span><span>X 4.28 m · Y 12.60 m　|　更新于 <b id="mapClock">--:--:--</b></span></div>
+        <div class="map-footer"><span>MAP-A · 装配物流区</span><span>4 个资源占用 · 1 台等待　|　更新于 <b id="mapClock">--:--:--</b></span></div>
       </section>
       <aside class="work-pane">
-        <div class="pane-head"><span class="pane-title">AMR-03</span>${badge("执行中","blue")}</div>
+        <div class="pane-head"><span class="pane-title">ZONE-A3</span>${badge("已占用","blue")}</div>
         <div class="property-section">
-          <h4>运行状态</h4>
+          <h4>资源状态</h4>
           <div class="property-list">
-            <div class="property"><span>连接状态</span><strong style="color:var(--green)">在线 · 28 ms</strong></div>
-            <div class="property"><span>当前任务</span><strong class="link">TSK-260731-021</strong></div>
-            <div class="property"><span>任务步骤</span><strong>前往 CNC-07</strong></div>
-            <div class="property"><span>电量</span><span class="battery"><span style="width:62%"></span></span></div>
-            <div class="property"><span>速度</span><strong>1.20 m/s</strong></div>
-            <div class="property"><span>坐标</span><strong>X 4.28 / Y 12.60</strong></div>
+            <div class="property"><span>资源类型</span><strong>单向窄通道</strong></div>
+            <div class="property"><span>当前占用</span><strong class="link">AMR-02</strong></div>
+            <div class="property"><span>关联任务</span><strong class="link">TSK-260731-018</strong></div>
+            <div class="property"><span>等待队列</span><strong style="color:var(--amber)">AMR-05 · 1 台</strong></div>
+            <div class="property"><span>最大容量</span><strong>1 台</strong></div>
+            <div class="property"><span>预计释放</span><strong>10:45:26</strong></div>
           </div>
         </div>
         <div class="property-section">
-          <h4>任务进度 · 68%</h4>
+          <h4>路权流转</h4>
           <div class="timeline">
-            <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>任务已分配</strong><small>10:42:18 · 最近距离策略</small></span></div>
-            <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>ST-01 取料完成</strong><small>10:43:36 · 用时 00:42</small></span></div>
-            <div class="timeline-item"><i class="time-dot" style="background:var(--amber);box-shadow:0 0 0 1px var(--amber)"></i><span class="timeline-copy"><strong>前往 CNC-07</strong><small>预计 10:48:20 到达</small></span></div>
+            <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>申请进入</strong><small>10:44:08 · AMR-02</small></span></div>
+            <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>路权已授予</strong><small>10:44:09 · 无冲突</small></span></div>
+            <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>进入资源</strong><small>10:44:12 · 已占用 48 秒</small></span></div>
+            <div class="timeline-item"><i class="time-dot" style="background:var(--amber);box-shadow:0 0 0 1px var(--amber)"></i><span class="timeline-copy"><strong>等待释放</strong><small>预计 10:45:26</small></span></div>
           </div>
         </div>
         <div class="property-section">
-          <button class="btn small" data-go="agv-detail.html">查看 AMR 详情</button>
-          <button class="btn small js-sim-fault">模拟故障</button>
+          <button class="btn small" data-go="task-list.html">查看关联任务</button>
+          <button class="btn small js-release-traffic">释放异常占用</button>
         </div>
       </aside>
     </div>`);
 }
 
-function renderSceneList() {
-  setActions(`<button class="btn primary js-toast" data-message="已创建一个空白仿真场景">＋ 新建场景</button>`);
+function renderTrafficResources() {
+  setActions(`<button class="btn primary js-toast" data-message="已创建一个空白管制资源">＋ 新建管制资源</button>`);
   const rows = [
-    ["SCN-001","流水线正常补料","MAP-A","6 台","正常任务链路","就绪","研发演示","07-31 10:20"],
-    ["SCN-002","AMR 中途故障","MAP-A","6 台","AMR-06 故障","就绪","研发测试","07-30 17:12"],
-    ["SCN-003","CNC 等待超时","MAP-A","4 台","CNC-03 等待","草稿","调度联调","07-30 15:48"],
-    ["SCN-004","充电任务插队","MAP-A","6 台","低电量触发","就绪","策略测试","07-29 11:06"]
-  ].map(r=>`<tr><td class="id">${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${badge(r[5],statusTone(r[5]))}</td><td>${r[6]}</td><td class="mono muted">${r[7]}</td><td><button class="btn small" data-go="simulation-live.html">运行</button></td></tr>`);
-  content(`${toolbar({search:"搜索场景名称",filters:["全部状态","全部地图"]})}${table(["场景编号","场景名称","地图","AMR","初始条件","状态","用途","更新时间","操作"],rows,["110px","18%","80px","70px","15%","80px","100px","110px","80px"])}`);
+    ["ZONE-A3","一号线窄通道","窄通道","MAP-A","占用","AMR-02","1","单向互斥","10:44:38"],
+    ["INT-01","中央交叉口","交叉路口","MAP-A","已授权","AMR-03","0","先到先行","10:44:31"],
+    ["GATE-02","二号线自动门","自动门","MAP-A","空闲","—","0","联动放行","10:44:20"],
+    ["LIFT-01","物流电梯","电梯","MAP-A","等待","—","1","单车优先","10:44:12"],
+    ["ZONE-B2","二号线会车区","会车区","MAP-A","封锁","—","0","容量 2 台","10:40:06"]
+  ].map(r=>`<tr><td class="id">${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${r[3]}</td><td>${badge(r[4],statusTone(r[4]))}</td><td>${r[5]}</td><td>${r[6]}</td><td>${r[7]}</td><td class="mono muted">${r[8]}</td><td><button class="btn small js-detail" data-kind="管制资源" data-id="${r[0]}">配置</button></td></tr>`);
+  content(`<div class="stats-row"><div class="stat-card"><div class="stat-label">启用资源</div><div class="stat-value">12<small>个</small></div><span class="stat-foot">当前地图</span></div><div class="stat-card blue"><div class="stat-label">占用中</div><div class="stat-value">4<small>个</small></div><span class="stat-foot">利用率 33%</span></div><div class="stat-card amber"><div class="stat-label">等待车辆</div><div class="stat-value">1<small>台</small></div><span class="stat-foot">最长等待 18 秒</span></div><div class="stat-card red"><div class="stat-label">临时封锁</div><div class="stat-value">1<small>个</small></div><span class="stat-foot">ZONE-B2</span></div></div>${toolbar({search:"搜索资源编号或名称",filters:["全部类型","全部状态"]})}${table(["资源编号","资源名称","类型","地图","状态","当前 AMR","队列","放行规则","更新时间","操作"],rows,["105px","16%","90px","75px","80px","90px","60px","110px","95px","72px"])}`);
+}
+
+function renderTrafficRecords() {
+  const rows = [
+    ["TRF-0186","10:44:12","进入资源","ZONE-A3","AMR-02","TSK-260731-018","成功","1.2 秒","系统"],
+    ["TRF-0185","10:44:09","路权授予","ZONE-A3","AMR-02","TSK-260731-018","成功","1.0 秒","系统"],
+    ["TRF-0184","10:43:58","路权等待","LIFT-01","AMR-05","TSK-260731-019","等待","18 秒","系统"],
+    ["TRF-0183","10:42:46","冲突消解","INT-01","AMR-03","TSK-260731-021","已重规划","4.6 秒","系统"],
+    ["TRF-0182","10:40:06","临时封锁","ZONE-B2","—","—","已生效","—","张凯"]
+  ].map(r=>`<tr><td class="id">${r[0]}</td><td class="mono">${r[1]}</td><td><b>${r[2]}</b></td><td>${r[3]}</td><td>${r[4]}</td><td class="id">${r[5]}</td><td>${badge(r[6],statusTone(r[6]))}</td><td>${r[7]}</td><td>${r[8]}</td><td><button class="btn small js-detail" data-kind="管制记录" data-id="${r[0]}">详情</button></td></tr>`);
+  content(`<div class="stats-row"><div class="stat-card"><div class="stat-label">今日路权申请</div><div class="stat-value">186<small>次</small></div><span class="stat-foot">成功率 98.9%</span></div><div class="stat-card cyan"><div class="stat-label">平均等待</div><div class="stat-value">4.8<small>秒</small></div><span class="stat-foot">较昨日 -0.6 秒</span></div><div class="stat-card amber"><div class="stat-label">冲突消解</div><div class="stat-value">2<small>次</small></div><span class="stat-foot">均已自动处理</span></div><div class="stat-card red"><div class="stat-label">人工干预</div><div class="stat-value">1<small>次</small></div><span class="stat-foot">临时封锁</span></div></div>${toolbar({search:"搜索记录、资源、AMR 或任务",filters:["全部事件","全部结果","今日"]})}${table(["记录编号","时间","事件","资源","AMR","关联任务","结果","等待时长","触发方","操作"],rows,["105px","75px","90px","90px","85px","135px","90px","85px","80px","65px"])}`);
 }
 
 function renderMapList() {
-  setActions(`<button class="btn primary js-new-map">＋ 新建地图</button>`);
+  setActions(`<button class="btn primary js-new-map">＋ 创建地图</button>`);
   const maps = [
-    ["MAP-A","装配物流区","已发布","760 × 520","32","14","6","V1.8","07-31 09:40"],
-    ["MAP-B","CNC 二号线测试区","草稿","680 × 480","18","8","2","V0.4","07-30 16:12"],
-    ["MAP-C","空白联调场景","草稿","800 × 600","0","0","0","V0.1","07-29 14:35"]
-  ].map(r=>`<tr><td class="id">${r[0]}</td><td><b>${r[1]}</b></td><td>${badge(r[2],statusTone(r[2]))}</td><td class="mono">${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td><td class="mono">${r[7]}</td><td class="mono muted">${r[8]}</td><td><button class="btn small" data-go="map-editor.html">编辑</button></td></tr>`);
-  content(`${toolbar({search:"搜索地图名称",filters:["全部状态"],right:`<button class="btn small">导入地图</button>`})}${table(["编号","地图名称","状态","画布尺寸","点位","设备","AMR","版本","更新时间","操作"],maps,["90px","19%","90px","105px","65px","65px","65px","70px","110px","76px"])}`);
+    ["MAP-A","装配物流区","2F","AMR 扫描","已发布","V1.8","V1.9 草稿","07-31 09:40"],
+    ["MAP-B","CNC 二号线测试区","1F","文件导入","草稿","—","V0.4","07-30 16:12"],
+    ["MAP-C","空白联调区域","2F","空白创建","空白","—","V0.1","07-29 14:35"]
+  ].map((r,i)=>`<tr><td class="id">${r[0]}</td><td><b>${r[1]}</b>${i===0?'<small class="table-sub">当前全局地图</small>':''}</td><td>${r[2]}</td><td>${r[3]}</td><td>${badge(r[4],statusTone(r[4]))}</td><td class="mono">${r[5]}</td><td class="mono">${r[6]}</td><td class="mono muted">${r[7]}</td><td><button class="btn small" data-go="map-editor.html">设为当前并编辑</button></td></tr>`);
+  content(`<div class="map-management-note"><span class="note-icon">i</span><div><strong>地图管理只维护地图实体与版本</strong><p>道路、点位、设备映射和管制区域请进入地图编辑器处理；切换当前地图后，顶部全局运行范围会同步更新。</p></div></div>${toolbar({search:"搜索地图编号或名称",filters:["全部楼层","全部来源","全部状态"]})}${table(["编号","地图名称","楼层","创建来源","状态","运行版本","编辑版本","更新时间","操作"],maps,["90px","18%","70px","100px","85px","90px","105px","110px","145px"])}`);
 }
 
 function renderMapEditor() {
-  setActions(`<button class="btn js-validate">校验</button><button class="btn js-toast" data-message="地图草稿已保存">保存草稿</button><button class="btn primary js-publish">发布地图</button>`);
+  setActions(`<button class="btn js-map-import">导入地图 ▾</button><button class="btn js-validate">校验</button><button class="btn js-toast" data-message="V1.9 地图草稿已保存">保存草稿</button><button class="btn primary js-publish">发布 V1.9</button>`);
   content(`
+    <div class="map-version-strip">
+      <div><span class="scope-kicker">当前全局地图</span><strong>2F / MAP-A · 装配物流区</strong></div>
+      <div class="version-pair"><span>运行版本 <b>V1.8</b>${badge("在线使用","green")}</span><i>→</i><span>编辑版本 <b>V1.9</b>${badge("未发布","amber")}</span></div>
+      <div class="version-save"><span class="dot"></span>已保存 · 张凯 · 10:46</div>
+    </div>
     <div class="editor-shell">
       <aside class="work-pane">
         <div class="pane-head"><span class="pane-title">编辑工具</span><span class="mono muted">V1.9 草稿</span></div>
@@ -394,15 +472,15 @@ function renderMapEditor() {
           <button class="editor-tool" data-tool="device"><b>▣</b>设备</button>
           <button class="editor-tool" data-tool="measure"><b>↔</b>测距</button>
         </div>
-        <div class="pane-head"><span class="pane-title">图层</span></div>
+        <div class="pane-head"><span class="pane-title">业务图层</span></div>
         <div class="object-list">
-          ${["底图","道路与方向","点位名称","机台设备","禁行区域","坐标网格"].map((x,i)=>`<label class="object-row"><input type="checkbox" ${i<5?"checked":""}><span class="object-copy"><strong>${x}</strong><small>${i===0?"760 × 520":i===1?"12 条道路":i===2?"32 个点位":"可见"}</small></span></label>`).join("")}
+          ${[["基础栅格地图","AMR-03 扫描 · V1.9"],["导航道路与方向","12 条道路"],["站点与停靠点","32 个点位"],["机台设备映射","14 台设备"],["交通管制资源","12 个资源"],["地图校验区域","3 个检测区域"],["禁行与限速区域","5 个区域"],["坐标网格","辅助图层"]].map((x,i)=>`<label class="object-row"><input type="checkbox" ${i<7?"checked":""}><span class="object-copy"><strong>${x[0]}</strong><small>${x[1]}</small></span></label>`).join("")}
         </div>
       </aside>
       <section class="map-pane" id="editorMap">
         <div class="map-toolbar"><button class="map-tool">−</button><button class="map-tool">100%</button><button class="map-tool">＋</button><button class="map-tool">适应画布</button></div>
         <div class="map-stage">${factoryMap({editor:true})}</div>
-        <div class="validation-bar" id="validationBar"><b>地图就绪</b><span class="muted">选择工具后在画布中编辑；点击“校验”检查发布条件</span></div>
+        <div class="validation-bar" id="validationBar"><b>V1.9 草稿就绪</b><span class="muted">扫描底图不会直接覆盖运行版本；完成业务图层配置、校验并发布后生效</span></div>
       </section>
       <aside class="work-pane">
         <div class="pane-head"><span class="pane-title">对象属性</span>${badge("道路","blue")}</div>
@@ -523,12 +601,12 @@ function renderDispatchRecords() {
 
 function renderAgvList() {
   setActions(`<button class="btn primary js-toast" data-message="已打开新增 AMR 表单">＋ 新增 AMR</button>`);
-  const rows = AMRS.map(a=>`<tr class="js-detail" data-kind="AMR" data-id="${a[0]}"><td class="id">${a[0]}</td><td>LP-200</td><td>${badge("在线",a[5]==="red"?"amber":"green")}</td><td>${badge(a[1],a[5])}</td><td class="mono">${a[2]}</td><td>${a[3]}</td><td class="table-link">${a[4]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small">详情 →</button></td></tr>`);
+  const rows = AMRS.map(a=>`<tr class="drill-row" data-go="agv-detail.html"><td class="id">${a[0]}</td><td>LP-200</td><td>${badge("在线",a[5]==="red"?"amber":"green")}</td><td>${badge(a[1],a[5])}</td><td class="mono">${a[2]}</td><td>${a[3]}</td><td class="table-link">${a[4]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="agv-detail.html">查看详情 →</button></td></tr>`);
   content(`${toolbar({search:"搜索 AMR 名称或编号",filters:["全部运行状态","全部型号","全部电量"]})}${table(["AMR","型号","连接","运行状态","电量","当前位置","当前任务","更新时间",""],rows,["95px","90px","80px","90px","70px","130px","145px","80px","70px"])}`);
 }
 
 function renderAgvDetail() {
-  setActions(`<button class="btn" data-go="simulation-live.html">地图定位</button><button class="btn primary" data-go="task-create.html">创建指定任务</button>`);
+  setActions(`<button class="btn back-btn" data-go="agv-list.html">← 返回 AMR 列表</button><span class="action-divider"></span><button class="btn" data-go="traffic-overview.html">地图定位</button><button class="btn primary" data-go="task-create.html">创建指定任务</button>`);
   content(`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">连接延迟</div><div class="stat-value">28<small>ms</small></div></div>
@@ -548,7 +626,7 @@ function renderAgvDetail() {
         <div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>ST-01 取料完成</strong><small>10:43:36 · 动作反馈正常</small></span></div>
         <div class="timeline-item"><i class="time-dot" style="background:var(--amber);box-shadow:0 0 0 1px var(--amber)"></i><span class="timeline-copy"><strong>前往 CNC-07</strong><small>预计 10:48:20 到达</small></span></div>
       </div></section>
-      <section class="panel"><div class="panel-head"><span class="panel-title">实时位置</span><button class="btn ghost small" data-go="simulation-live.html">打开地图 →</button></div><div class="device-map-mini">${factoryMap()}</div></section>
+      <section class="panel"><div class="panel-head"><span class="panel-title">实时位置</span><button class="btn ghost small" data-go="traffic-overview.html">打开地图 →</button></div><div class="device-map-mini">${factoryMap()}</div></section>
     </div>`);
 }
 
@@ -563,12 +641,12 @@ function renderAgvModels() {
 
 function renderDeviceList() {
   setActions(`<button class="btn primary js-toast" data-message="已打开新增设备表单">＋ 新增设备</button>`);
-  const rows = DEVICES.map(d=>`<tr class="js-detail" data-kind="设备" data-id="${d[0]}"><td class="id">${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${badge(d[3],d[7])}</td><td>${badge(d[4],"green")}</td><td>${d[5]}</td><td class="table-link">${d[6]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small">详情 →</button></td></tr>`);
+  const rows = DEVICES.map(d=>`<tr class="drill-row" data-go="device-detail.html"><td class="id">${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${badge(d[3],d[7])}</td><td>${badge(d[4],"green")}</td><td>${d[5]}</td><td class="table-link">${d[6]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="device-detail.html">查看详情 →</button></td></tr>`);
   content(`${toolbar({search:"搜索设备名称或编号",filters:["全部设备状态","全部流水线","全部地图"]})}${table(["设备","类型","所属区域","运行状态","连接","地图","绑定点位","更新时间",""],rows,["90px","80px","100px","105px","75px","80px","100px","80px","70px"])}`);
 }
 
 function renderDeviceDetail() {
-  setActions(`<button class="btn" data-go="simulation-live.html">地图定位</button><button class="btn primary js-toast" data-message="设备映射已保存">编辑映射</button>`);
+  setActions(`<button class="btn back-btn" data-go="device-list.html">← 返回设备列表</button><span class="action-divider"></span><button class="btn" data-go="traffic-overview.html">地图定位</button><button class="btn primary js-toast" data-message="设备映射已保存">编辑映射</button>`);
   content(`
     <div class="split-main">
       <div>
@@ -783,7 +861,7 @@ function renderSettings() {
     setActions(`<button class="btn primary js-toast" data-message="已打开新增角色表单">＋ 新增角色</button>`);
     content(`
       <div class="grid three">
-        ${[["管理员","4 名用户","全部模块和高风险操作","blue"],["研发人员","12 名用户","研发功能与实时控制","cyan"],["只读用户","3 名用户","查看状态和列表","gray"]].map(r=>`<section class="panel"><div class="panel-head"><span class="panel-title">${r[0]}</span>${badge("启用",r[3])}</div><div class="panel-body"><div class="stat-value" style="font-size:20px">${r[1]}</div><p class="muted" style="font-size:11px;line-height:1.7">${r[2]}</p><button class="btn small js-detail" data-kind="角色" data-id="${r[0]}">配置权限</button></div></section>`).join("")}
+        ${[["管理员","4 名用户","全部模块和高风险操作","blue"],["研发人员","12 名用户","研发功能与交通管制","cyan"],["只读用户","3 名用户","查看状态和列表","gray"]].map(r=>`<section class="panel"><div class="panel-head"><span class="panel-title">${r[0]}</span>${badge("启用",r[3])}</div><div class="panel-body"><div class="stat-value" style="font-size:20px">${r[1]}</div><p class="muted" style="font-size:11px;line-height:1.7">${r[2]}</p><button class="btn small js-detail" data-kind="角色" data-id="${r[0]}">配置权限</button></div></section>`).join("")}
       </div>
       <section class="panel mt-14"><div class="panel-head"><span class="panel-title">高风险权限</span><span class="panel-subtitle">独立控制，默认关闭</span></div><div class="panel-body">
         ${[["任务控制","创建、取消和重试执行任务"],["地图发布","将草稿地图发布到仿真环境"],["仿真重置","清空当前场景并恢复初始状态"],["AMR 停用","阻止指定车辆继续接收任务"],["API 请求","从平台测试台发送接口请求"]].map((x,i)=>`<div class="mini-row"><span><strong>${x[0]}</strong><small>${x[1]}</small></span><label><input type="checkbox" ${i<2?"checked":""}> 研发人员</label></div>`).join("")}
@@ -887,7 +965,7 @@ function closeModal() {
 function toast(message) {
   const el = document.createElement("div");
   el.className = "toast";
-  el.innerHTML = `<span class="toast-icon">✓</span><span><strong>${message}</strong><br><small class="muted">操作已记录到当前仿真环境</small></span>`;
+  el.innerHTML = `<span class="toast-icon">✓</span><span><strong>${message}</strong><br><small class="muted">操作已记录到当前演示环境</small></span>`;
   document.getElementById("toastStack").appendChild(el);
   setTimeout(() => el.remove(), 3200);
 }
@@ -908,7 +986,25 @@ function bindCommonEvents() {
     const toastButton = event.target.closest(".js-toast");
     if (toastButton) toast(toastButton.dataset.message || "操作已完成");
 
+    if (event.target.closest(".js-global-context")) {
+      openModal("切换全局运行范围", `
+        <p>切换后，运行概览、数字孪生、派单、交通管制、AMR 和设备页面将使用同一空间范围。</p>
+        <div class="form-grid">
+          <div class="form-row"><label>楼层</label><select class="js-context-floor"><option>1F</option><option selected>2F</option><option>3F</option></select></div>
+          <div class="form-row"><label>地图</label><select class="js-context-map"><option value="MAP-A">MAP-A · 装配物流区</option><option value="MAP-B">MAP-B · CNC 二号线</option><option value="MAP-C">MAP-C · 联调区</option></select></div>
+        </div>`, "应用范围");
+    }
+
     if (event.target.closest(".js-modal-confirm")) {
+      const floor = document.querySelector(".js-context-floor");
+      const map = document.querySelector(".js-context-map");
+      if (floor && map) {
+        const value = `${floor.value} / ${map.value}`;
+        document.querySelectorAll(".js-current-context").forEach(el => { el.textContent = value; });
+        closeModal();
+        toast(`全局运行范围已切换为 ${value}`);
+        return;
+      }
       closeModal();
       toast("操作已确认");
     }
@@ -927,26 +1023,17 @@ function bindCommonEvents() {
     }
   });
 
-  let simSpeed = 1;
   document.addEventListener("click", event => {
-    if (event.target.closest(".js-sim-toggle")) {
-      const btn = event.target.closest(".js-sim-toggle");
-      const shell = document.getElementById("simShell");
-      shell.classList.toggle("sim-paused");
-      btn.textContent = shell.classList.contains("sim-paused") ? "▶ 继续" : "Ⅱ 暂停";
+    const trafficLayer = event.target.closest(".js-traffic-layer");
+    if (trafficLayer) {
+      trafficLayer.classList.toggle("active");
+      toast(`${trafficLayer.textContent.trim()}图层已${trafficLayer.classList.contains("active") ? "显示" : "隐藏"}`);
     }
-    if (event.target.closest(".js-speed")) {
-      simSpeed = simSpeed === 1 ? 2 : simSpeed === 2 ? 4 : 1;
-      document.documentElement.style.setProperty("--sim-duration", `${15/simSpeed}s`);
-      const agv = document.querySelector(".agv-moving");
-      if (agv) agv.style.animationDuration = `${15/simSpeed}s`;
-      event.target.closest(".js-speed").textContent = `${simSpeed}×`;
+    if (event.target.closest(".js-traffic-block")) {
+      openModal("临时封锁交通资源", `<div class="form-grid"><div class="form-row full"><label>管制资源</label><select><option>ZONE-B2 · 二号线会车区</option><option>ZONE-A3 · 一号线窄通道</option><option>INT-01 · 中央交叉口</option></select></div><div class="form-row full"><label>封锁原因</label><input value="现场临时作业"></div><div class="form-row"><label>预计结束</label><input value="30 分钟后"></div><div class="form-row"><label>影响任务</label><input value="预计 2 个"></div></div>`, "确认封锁");
     }
-    if (event.target.closest(".js-sim-reset")) {
-      openModal("重置仿真场景", `<p>场景将恢复为初始状态，当前模拟任务和故障状态会被清除。</p><div class="detail-item"><label>当前场景</label><strong>流水线正常补料</strong></div>`, "重置仿真");
-    }
-    if (event.target.closest(".js-sim-fault")) {
-      openModal("模拟 AMR 故障", `<p>AMR-03 将停止移动并生成一条模拟故障事件，仅影响当前仿真场景。</p>`, "模拟故障");
+    if (event.target.closest(".js-release-traffic")) {
+      openModal("释放异常占用", `<p>仅在车辆已离开但资源状态未释放时使用。操作将写入管制记录。</p><div class="detail-item"><label>当前资源</label><strong>ZONE-A3 · AMR-02</strong></div>`, "确认释放");
     }
     const object = event.target.closest(".js-object");
     if (object) {
@@ -972,10 +1059,20 @@ function bindCommonEvents() {
       toast("地图校验完成");
     }
     if (event.target.closest(".js-publish")) {
-      openModal("发布地图 MAP-A V1.9", `<p>地图校验已通过。发布后，实时仿真将使用这个版本。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>变更</label><strong>道路 1 · 点位 2</strong></div><div class="detail-item"><label>目标环境</label><strong>仿真环境</strong></div></div>`, "发布地图");
+      openModal("发布地图 MAP-A V1.9", `<p>地图校验已通过。发布后，交通管制与任务执行将使用这个版本。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>变更</label><strong>道路 1 · 点位 2</strong></div><div class="detail-item"><label>目标范围</label><strong>当前专案</strong></div></div>`, "发布地图");
     }
-    if (event.target.closest(".js-new-map")) {
-      openModal("新建地图", `<div class="form-grid"><div class="form-row full"><label>地图名称</label><input value="新建物流地图"></div><div class="form-row"><label>画布宽度</label><input value="800"></div><div class="form-row"><label>画布高度</label><input value="600"></div></div>`, "创建地图");
+    if (event.target.closest(".js-new-map") || event.target.closest(".js-map-import")) {
+      openModal("选择地图创建方式", `<div class="map-source-grid"><button class="map-source-card js-map-source" data-source="scan"><span>AMR</span><strong>从 AMR 扫描创建</strong><small>选择在线车辆扫描现场，生成新的基础栅格地图</small></button><button class="map-source-card js-map-source" data-source="blank"><span>＋</span><strong>创建空白地图</strong><small>先建立地图记录，再手动编辑全部图层</small></button><button class="map-source-card js-map-source" data-source="file"><span>UP</span><strong>导入地图文件</strong><small>上传已有地图作为新的基础地图版本</small></button></div>`, "取消");
+    }
+    const mapSource = event.target.closest(".js-map-source");
+    if (mapSource?.dataset.source === "scan") {
+      openModal("从 AMR 扫描创建地图", `<div class="scan-flow"><div class="scan-step active"><b>1</b><span>选择车辆</span></div><div class="scan-step"><b>2</b><span>现场扫描</span></div><div class="scan-step"><b>3</b><span>预览处理</span></div><div class="scan-step"><b>4</b><span>保存草稿</span></div></div><div class="form-grid"><div class="form-row"><label>执行扫描的 AMR</label><select><option>AMR-01 · 在线 / 空闲</option><option>AMR-04 · 在线 / 充电中</option></select></div><div class="form-row"><label>保存方式</label><select><option>创建当前地图的新版本</option><option>创建一张新地图</option></select></div><div class="form-row"><label>目标楼层</label><select><option>2F</option><option>1F</option></select></div><div class="form-row"><label>地图名称</label><input value="MAP-A · 装配物流区"></div><div class="form-row full"><label>扫描范围</label><select><option>当前地图全部区域</option><option>指定局部区域</option></select><span class="form-help">扫描结果只生成基础栅格层，不会直接覆盖正在运行的 V1.8。</span></div></div>`, "开始扫描");
+    }
+    if (mapSource?.dataset.source === "blank") {
+      openModal("创建空白地图", `<div class="form-grid"><div class="form-row"><label>地图名称</label><input value="新建物流地图"></div><div class="form-row"><label>所属楼层</label><select><option>2F</option><option>1F</option><option>新建楼层</option></select></div><div class="form-row"><label>画布宽度</label><input value="800"></div><div class="form-row"><label>画布高度</label><input value="600"></div><div class="form-row full"><label>地图编号</label><input value="MAP-D"></div></div>`, "创建并打开编辑器");
+    }
+    if (mapSource?.dataset.source === "file") {
+      openModal("导入地图文件", `<div class="upload-zone"><b>选择地图文件</b><span>支持研发配置的栅格地图格式，导入后先保存为草稿</span><button class="btn small">选择文件</button></div><div class="form-grid mt-14"><div class="form-row"><label>保存方式</label><select><option>创建当前地图的新版本</option><option>创建一张新地图</option></select></div><div class="form-row"><label>目标楼层</label><select><option>2F</option><option>1F</option></select></div></div>`, "开始导入");
     }
     if (event.target.closest(".js-create-task")) {
       openModal("确认创建任务", `<p>任务将使用“最近距离优先”策略，由平台自动选择 AMR。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>路线</label><strong>ST-01 → CNC-07</strong></div><div class="detail-item"><label>推荐车辆</label><strong>AMR-01</strong></div></div>`, "创建任务");
@@ -1027,7 +1124,9 @@ function updateClock() {
 
 function renderPage() {
   if (PAGE_ID === "dashboard") return renderDashboard();
-  if (PAGE_ID.startsWith("simulation")) return renderSimulation();
+  if (PAGE_ID === "digital-twin") return renderDigitalTwin();
+  if (PAGE_ID === "alert-center") return renderAlertCenter();
+  if (PAGE_ID.startsWith("traffic-")) return renderTraffic();
   if (PAGE_ID === "map-list") return renderMapList();
   if (PAGE_ID === "map-editor") return renderMapEditor();
   if (PAGE_ID === "task-list") return renderTaskList();
