@@ -6,8 +6,8 @@ const NAV = [
     ["dashboard", "运行总览", "OV"]
   ]},
   { id: "dispatch", label: "派单管理", file: "task-list.html", children: [
-    ["task-list", "任务列表", "TK"],
-    ["task-create", "创建任务", "＋"],
+    ["task-list", "实时任务", "RT"],
+    ["task-config", "任务配置", "CF"],
     ["dispatch-strategies", "调度策略", "ST"],
     ["dispatch-records", "调度记录", "RC"]
   ]},
@@ -24,12 +24,10 @@ const NAV = [
     ["map-editor", "地图编辑器", "ED"],
     ["map-list", "地图管理", "MP"]
   ]},
-  { id: "agv", label: "AMR 管理", file: "agv-list.html", children: [
+  { id: "resource", label: "资源管理", file: "agv-list.html", children: [
     ["agv-list", "AMR 列表", "AM"],
-    ["agv-models", "型号配置", "MD"]
-  ]},
-  { id: "device", label: "设备管理", file: "device-list.html", children: [
     ["device-list", "设备列表", "DV"],
+    ["agv-models", "型号配置", "MD"],
     ["device-types", "设备类型", "TP"]
   ]},
   { id: "api", label: "API 测试", file: "api-catalog.html", children: [
@@ -54,10 +52,15 @@ const PAGE_META = {
   "traffic-records": ["管制记录", "追踪路权申请、占用释放、冲突与人工干预记录"],
   "map-editor": ["地图编辑器", "编辑全局运行范围中当前选中的地图及其业务图层"],
   "map-list": ["地图管理", "创建地图记录并管理楼层归属、来源、版本与发布状态"],
-  "task-list": ["任务列表", "查看任务队列、执行状态和失败原因"],
-  "task-create": ["创建任务", "选择起终点与 AMR，创建一条厂内物流任务"],
+  "task-list": ["实时任务", "集中掌握设备请求、任务阶段、执行车辆与现场异常"],
+  "task-config": ["任务配置", "维护设备请求可匹配的标准任务模板与执行规则"],
+  "task-detail": ["任务详情", "查看任务从设备请求到执行完成的实时过程"],
+  "task-config-create": ["新建任务配置", "定义设备请求、物流路线、行为树与派单约束"],
+  "task-config-edit": ["编辑任务配置", "调整标准任务模板及其请求匹配规则"],
   "dispatch-strategies": ["调度策略", "配置研发提供的调度类型和可调参数"],
+  "dispatch-strategy-detail": ["调度策略详情", "维护策略参数并查看受影响的任务配置"],
   "dispatch-records": ["调度记录", "追踪每次任务分配所采用的策略与结果"],
+  "dispatch-record-detail": ["调度记录详情", "还原一次任务分配的候选车辆、决策依据与结果"],
   "agv-list": ["AMR 列表", "集中查看单品牌 AMR 的运行与连接状态"],
   "agv-detail": ["AMR-03 详情", "查看单车状态、任务、事件和基础配置"],
   "agv-models": ["型号配置", "维护当前品牌 AMR 的展示参数与基础规格"],
@@ -107,8 +110,8 @@ const DEVICES = [
 ];
 
 function moduleForPage(pageId) {
-  if (pageId === "agv-detail") return NAV.find(item => item.id === "agv");
-  if (pageId === "device-detail") return NAV.find(item => item.id === "device");
+  if (pageId === "agv-detail" || pageId === "device-detail") return NAV.find(item => item.id === "resource");
+  if (["task-detail","task-config-create","task-config-edit","dispatch-strategy-detail","dispatch-record-detail"].includes(pageId)) return NAV.find(item => item.id === "dispatch");
   return NAV.find(item => item.children.some(child => child[0] === pageId)) || NAV[0];
 }
 
@@ -125,9 +128,10 @@ function renderShell() {
   const meta = PAGE_META[PAGE_ID] || PAGE_META.dashboard;
   const isHome = PAGE_ID === "dashboard";
   const primary = NAV.map(item => `<a class="${item.id === module.id ? "active" : ""}" href="${pageHref(item.file)}">${item.label}</a>`).join("");
-  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : "";
+  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : PAGE_ID === "task-detail" ? "task-list" : ["task-config-create","task-config-edit"].includes(PAGE_ID) ? "task-config" : PAGE_ID === "dispatch-strategy-detail" ? "dispatch-strategies" : PAGE_ID === "dispatch-record-detail" ? "dispatch-records" : "";
   const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID || child[0] === parentList ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
-  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : `${module.label} / ${meta[0]}`;
+  const dispatchParent = {"task-detail":"实时任务","task-config-create":"任务配置","task-config-edit":"任务配置","dispatch-strategy-detail":"调度策略","dispatch-record-detail":"调度记录"}[PAGE_ID];
+  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : dispatchParent ? `${module.label} / ${dispatchParent} / ${meta[0]}` : `${module.label} / ${meta[0]}`;
 
   document.body.innerHTML = `
     <header class="topbar">
@@ -287,7 +291,7 @@ function occupancyGridMap() {
 }
 
 function renderDashboardCockpit() {
-  setActions(`<button class="btn" data-go="traffic-overview.html">交通态势</button><button class="btn primary" data-go="task-create.html">＋ 创建任务</button>`);
+  setActions(`<button class="btn" data-go="traffic-overview.html">交通态势</button>`);
   content(`
     <div class="overview-cockpit">
       <aside class="overview-side">
@@ -332,14 +336,6 @@ function renderDashboard() {
   setActions("");
   content(`
     <section class="twin-hud">
-      <div class="hud-topline">
-        <div class="hud-scope"><span>DIGITAL TWIN</span><strong class="js-current-context">2F / MAP-A</strong></div>
-        <div class="hud-kpi"><span>AMR 在线</span><strong>6 <small>/ 6</small></strong><i class="ok">100%</i></div>
-        <div class="hud-kpi"><span>执行中任务</span><strong>3</strong><i>待调度 2</i></div>
-        <div class="hud-kpi"><span>设备在线</span><strong>14 <small>/ 14</small></strong><i class="ok">正常</i></div>
-        <div class="hud-kpi"><span>交通占用</span><strong>4</strong><i class="warn">1 台等待</i></div>
-        <div class="hud-kpi alert"><span>当前告警</span><strong>3</strong><i>严重 1</i></div>
-      </div>
       <div class="hud-body">
         <aside class="hud-side left">
           <div class="hud-block utilization">
@@ -356,13 +352,10 @@ function renderDashboard() {
             ${AMRS.slice(0,4).map(a=>`<div><span class="unit-dot ${a[5]}"></span><b>${a[0]}</b><em>${a[2]}</em><small>${a[1]}</small></div>`).join("")}
           </div>
         </aside>
-        <div class="twin-stage-copy">
-          <div class="twin-axis x"></div><div class="twin-axis y"></div>
-          <span class="feature-kicker">功能规划 · 尚未接入孪生引擎</span>
-          <h2>厂内物流数字孪生</h2>
-          <p>未来将在此呈现当前楼层与地图的空间模型，并实时映射AMR位置、机台状态、任务路径和交通资源。</p>
-          <div class="twin-capabilities"><span>AMR实时位置</span><span>机台设备状态</span><span>任务执行路径</span><span>交通资源占用</span></div>
-          <small>运行范围由顶部全局筛选控制</small>
+        <div class="twin-stage-visual">
+          <img src="../assets/images/digital-twin-factory.png" alt="厂内物流AMR三维数字孪生静态效果图">
+          <div class="twin-visual-shade"></div>
+          <div class="twin-visual-label"><span>DIGITAL TWIN · STATIC PREVIEW</span><strong class="js-current-context">2F / MAP-A</strong></div>
         </div>
         <aside class="hud-side right">
           <div class="hud-block hud-task-list">
@@ -552,8 +545,11 @@ function renderMapEditor() {
 }
 
 function renderTaskList() {
-  setActions(`<button class="btn primary" data-go="task-create.html">＋ 创建任务</button>`);
-  const rows = TASKS.map(t=>`<tr class="js-detail" data-kind="任务" data-id="${t[0]}"><td class="id">${t[0]}</td><td>${t[1]}</td><td>${t[2]}</td><td>${t[3]}</td><td class="table-link">${t[4]}</td><td>${badge(t[5],statusTone(t[5]))}</td><td>${badge(t[6],t[6]==="高"?"red":t[6]==="低"?"gray":"blue")}</td><td class="mono muted">${t[7]}</td><td><button class="btn ghost small">详情 →</button></td></tr>`);
+  setActions(`<span class="live-indicator"><i></i> 实时更新</span>`);
+  const stages = ["前往取料点","等待机台放行","前往交付点","调度异常","等待可用 AMR","任务已完成"];
+  const sources = ["CNC-07","CNC-04","CNC-02","ST-03","BUF-01","CNC-08"];
+  const elapsed = ["06:18","02:46","等待 01:32","异常 00:48","排队 03:09","完成 10:24"];
+  const rows = TASKS.map((t,i)=>`<tr class="drill-row" data-go="task-detail.html"><td class="id">${t[0]}</td><td><strong>${sources[i]}</strong><small class="cell-note">设备请求</small></td><td>${t[1]}<small class="cell-note">${t[2]} → ${t[3]}</small></td><td><span class="task-stage"><i style="--progress:${Math.min(88,18+i*13)}%"></i></span><small class="cell-note">${stages[i]}</small></td><td class="table-link">${t[4]}</td><td>${badge(t[5],statusTone(t[5]))}</td><td class="mono ${i===1?'text-red':'muted'}">${elapsed[i]}</td><td><button class="btn ghost small" data-go="task-detail.html">查看 →</button></td></tr>`);
   content(`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">待调度</div><div class="stat-value">2</div></div>
@@ -561,54 +557,57 @@ function renderTaskList() {
       <div class="stat-card amber"><div class="stat-label">等待</div><div class="stat-value">1</div></div>
       <div class="stat-card red"><div class="stat-label">异常</div><div class="stat-value">1</div></div>
     </div>
-    ${toolbar({search:"搜索任务编号",filters:["全部状态","全部任务类型","全部 AMR"],right:`<button class="btn small">导出</button>`})}
-    ${table(["任务编号","类型","起点","终点","AMR","状态","优先级","创建时间",""],rows,["145px","100px","85px","85px","85px","90px","75px","100px","70px"])}
+    ${toolbar({search:"搜索任务、请求设备或 AMR",filters:["全部运行状态","全部任务类型","全部来源设备"],right:`<span class="muted">最后更新 14:32:08</span>`})}
+    ${table(["任务编号","请求来源","任务与路线","当前执行阶段","执行 AMR","状态","持续时间",""],rows,["145px","105px","160px","150px","90px","90px","100px","65px"])}
   `);
 }
 
-function renderTaskCreate() {
-  setActions(`<button class="btn" data-go="task-list.html">返回列表</button>`);
+function renderTaskConfig() {
+  setActions(`<button class="btn primary" data-go="task-config-create.html">＋ 新建任务配置</button>`);
+  const configs = [
+    ["CFG-001","线边补料","CNC 请求缺料","ST-01 → 请求机台","标准补料流程","最近距离优先","启用","12"],
+    ["CFG-002","成品转运","机台加工完成","请求机台 → BUF-02","成品下料流程","电量均衡","启用","8"],
+    ["CFG-003","空箱回收","空箱数量达阈值","请求机台 → REC-01","空箱回收流程","最近距离优先","启用","5"],
+    ["CFG-004","紧急叫料","MES 紧急请求","WARE-01 → 请求设备","紧急配送流程","高优先级抢占","停用","0"]
+  ];
+  const rows = configs.map(c=>`<tr class="drill-row" data-go="task-config-edit.html"><td class="id">${c[0]}</td><td><strong>${c[1]}</strong></td><td>${c[2]}</td><td>${c[3]}</td><td class="table-link">${c[4]}</td><td>${c[5]}</td><td>${badge(c[6],c[6]==="启用"?"green":"gray")}</td><td class="mono">${c[7]}</td><td><button class="btn ghost small" data-go="task-config-edit.html">编辑 →</button></td></tr>`);
+  content(`${toolbar({search:"搜索配置名称或触发设备",filters:["全部任务类型","全部状态"],right:`<button class="btn small">导出配置</button>`})}${table(["配置编号","任务类型","设备触发条件","默认路线","行为树","调度策略","状态","今日触发",""],rows,["95px","100px","150px","145px","130px","125px","75px","80px","65px"])}`);
+}
+
+function renderTaskConfigEditor() {
+  const editing = PAGE_ID === "task-config-edit";
+  setActions(`<button class="btn" data-go="task-config.html">← 返回任务配置</button>`);
   content(`
-    <div class="stepper">
-      <div class="step active"><span>1</span>任务信息</div>
-      <div class="step active"><span>2</span>选择路线</div>
-      <div class="step"><span>3</span>分配车辆</div>
-      <div class="step"><span>4</span>确认创建</div>
-    </div>
-    <div class="split-main">
-      <section class="panel">
-        <div class="panel-head"><span class="panel-title">任务配置</span>${badge("仿真任务","blue")}</div>
-        <div class="panel-body">
-          <div class="form-grid">
-            <div class="form-row"><label>任务名称 *</label><input value="CNC-07 线边补料"></div>
-            <div class="form-row"><label>任务类型 *</label><select><option>线边补料</option><option>成品转运</option><option>空箱回收</option></select></div>
-            <div class="form-row"><label>起点 *</label><select><option>ST-01 · 一号上料站</option><option>ST-02 · 二号上料站</option></select></div>
-            <div class="form-row"><label>终点 *</label><select><option>CNC-07 · 上料点</option><option>CNC-06 · 上料点</option></select></div>
-            <div class="form-row"><label>调度方式</label><select><option>自动分配</option><option>指定 AMR</option></select></div>
-            <div class="form-row"><label>调度策略</label><select><option>最近距离优先（默认）</option><option>电量均衡</option></select></div>
-            <div class="form-row"><label>任务优先级</label><select><option>高</option><option>普通</option><option>低</option></select></div>
-            <div class="form-row"><label>执行动作</label><select><option>取料 → 运输 → 放料</option></select></div>
-            <div class="form-row full"><label>备注</label><textarea placeholder="填写本次任务说明">一号上料站向 CNC-07 配送周转箱。</textarea></div>
-          </div>
-          <div class="form-footer"><button class="btn" data-go="task-list.html">取消</button><button class="btn primary js-create-task">创建任务</button></div>
-        </div>
-      </section>
-      <aside class="panel">
-        <div class="panel-head"><span class="panel-title">路线与候选车辆</span></div>
-        <div class="panel-body">
-          <div class="device-map-mini">${factoryMap()}</div>
-          <div class="mini-list mt-14">
-            <div class="mini-row"><span><strong>AMR-01</strong><small>空闲 · 距离起点 4.2 m</small></span>${badge("推荐","green")}</div>
-            <div class="mini-row"><span><strong>AMR-04</strong><small>充电中 · 电量 41%</small></span>${badge("可用","cyan")}</div>
-            <div class="mini-row"><span><strong>AMR-05</strong><small>等待任务 · 距离 12.8 m</small></span>${badge("备选","gray")}</div>
-          </div>
-        </div>
+    <div class="config-editor-grid">
+      <div class="config-editor-main">
+        ${configSection("01","基础信息",`<div class="form-grid"><div class="form-row"><label>配置名称 *</label><input value="${editing?'标准线边补料':''}" placeholder="例如：标准线边补料"></div><div class="form-row"><label>任务类型 *</label><select><option>线边补料</option><option>成品转运</option><option>空箱回收</option></select></div><div class="form-row"><label>运行范围 *</label><select><option>2F / MAP-A</option></select></div><div class="form-row"><label>默认优先级</label><select><option>普通</option><option>高</option><option>低</option></select></div></div>`)}
+        ${configSection("02","请求触发",`<div class="form-grid"><div class="form-row"><label>请求来源 *</label><select><option>机台设备</option><option>API 请求</option></select></div><div class="form-row"><label>设备范围 *</label><select><option>CNC 设备组</option><option>指定设备</option></select></div><div class="form-row"><label>请求事件 *</label><select><option>物料不足</option><option>加工完成</option></select></div><div class="form-row"><label>重复请求抑制</label><select><option>同设备存在未完成任务时忽略</option><option>进入等待队列</option></select></div></div>`)}
+        ${configSection("03","任务路线",`<div class="form-grid"><div class="form-row"><label>取货点 *</label><select><option>ST-01 · 一号上料站</option><option>请求参数指定</option></select></div><div class="form-row"><label>交付点 *</label><select><option>请求设备绑定点</option><option>固定站点</option></select></div><div class="form-row full"><label>中间点</label><input placeholder="可选；按执行顺序添加"></div></div><div class="route-preview"><span>ST-01</span><i></i><span>请求设备绑定点</span></div>`)}
+        ${configSection("04","执行与派单",`<div class="form-grid"><div class="form-row"><label>行为树 *</label><select><option>标准补料流程 · V2.4</option><option>成品下料流程 · V1.8</option></select></div><div class="form-row"><label>调度策略 *</label><select><option>最近距离优先</option><option>电量均衡</option></select><span class="form-help">策略参数在“调度策略”中统一维护</span></div><div class="form-row"><label>AMR 能力要求</label><select><option>潜伏顶升 / 载重 ≥ 500 kg</option></select></div><div class="form-row"><label>无可用车辆</label><select><option>进入等待队列并告警</option><option>仅进入等待队列</option></select></div><div class="form-row"><label>最低接单电量</label><input value="30%"></div><div class="form-row"><label>执行超时</label><input value="30 分钟"></div></div>`)}
+      </div>
+      <aside class="config-editor-side">
+        <section class="panel sticky-panel"><div class="panel-head"><span class="panel-title">配置检查</span>${badge(editing?"已启用":"草稿",editing?"green":"gray")}</div><div class="panel-body"><div class="check-list"><div class="pass">✓ 请求设备已绑定地图</div><div class="pass">✓ 行为树版本已发布</div><div class="pass">✓ 调度策略当前启用</div><div class="warn">! 保存后检查重复匹配规则</div></div><div class="context-summary"><small>当前运行范围</small><strong>2F / MAP-A</strong><span>配置只对该地图内的设备请求生效</span></div><div class="form-footer vertical"><button class="btn primary js-save-task-config">${editing?'保存更改':'保存并启用'}</button><button class="btn js-save-draft">保存草稿</button><button class="btn ghost" data-go="task-config.html">取消</button></div></div></section>
       </aside>
     </div>`);
 }
 
+function configSection(index,title,body) {
+  return `<section class="panel config-section"><div class="panel-head"><span class="section-index">${index}</span><span class="panel-title">${title}</span></div><div class="panel-body">${body}</div></section>`;
+}
+
 function renderStrategies() {
-  setActions(`<button class="btn js-toast" data-message="策略副本已创建">另存为</button><button class="btn primary js-toast" data-message="调度策略已保存">保存策略</button>`);
+  setActions(`<button class="btn primary js-toast" data-message="已打开新增策略表单">＋ 新增策略</button>`);
+  const strategies = [
+    ["STR-001","最近距离优先","NearestVehicleStrategy","默认策略","3 个","启用","14:18"],
+    ["STR-002","电量均衡","BatteryBalanceStrategy","常规策略","1 个","启用","昨天"],
+    ["STR-003","高优先级抢占","PriorityPreemptStrategy","紧急任务","1 个","停用","07-29"]
+  ];
+  const rows = strategies.map(s=>`<tr class="drill-row" data-go="dispatch-strategy-detail.html"><td class="id">${s[0]}</td><td><strong>${s[1]}</strong><small class="cell-note">${s[3]}</small></td><td class="mono">${s[2]}</td><td>${s[4]}</td><td>${badge(s[5],s[5]==="启用"?"green":"gray")}</td><td class="mono muted">${s[6]}</td><td><button class="btn ghost small" data-go="dispatch-strategy-detail.html">配置 →</button></td></tr>`);
+  content(`${toolbar({search:"搜索策略名称或算法类型",filters:["全部状态","全部用途"]})}${table(["策略编号","策略名称","算法类型","关联任务配置","状态","更新时间",""],rows,["95px","145px","200px","120px","80px","100px","70px"])}`);
+}
+
+function renderStrategyDetail() {
+  setActions(`<button class="btn back-btn" data-go="dispatch-strategies.html">← 返回策略列表</button><span class="action-divider"></span><button class="btn js-toast" data-message="策略副本已创建">另存为</button><button class="btn primary js-toast" data-message="调度策略已保存">保存策略</button>`);
   content(`
     <div class="strategy-layout">
       <section class="panel">
@@ -635,6 +634,7 @@ function renderStrategies() {
             <div class="detail-item"><label>分配结果</label><strong style="color:var(--blue)">AMR-01</strong></div>
             <div class="detail-item"><label>计算耗时</label><strong>18 ms</strong></div>
           </div>
+          <div class="mini-list mt-14"><div class="mini-row"><span><strong>CFG-001 · 标准线边补料</strong><small>启用 · 普通优先级</small></span>${badge("引用中","blue")}</div><div class="mini-row"><span><strong>CFG-003 · 空箱回收</strong><small>启用 · 普通优先级</small></span>${badge("引用中","blue")}</div><div class="mini-row"><span><strong>CFG-005 · 物料跨区转运</strong><small>草稿</small></span>${badge("未启用","gray")}</div></div>
           <div class="code-block mt-14" id="strategyResult">等待运行模拟测试…</div>
         </div>
       </aside>
@@ -642,9 +642,19 @@ function renderStrategies() {
 }
 
 function renderDispatchRecords() {
-  const records = TASKS.map((t,i)=>`<tr><td class="mono muted">10:${42-i*3}:${18+i}</td><td class="id">${t[0]}</td><td>${i%2?"电量均衡":"最近距离优先"}</td><td>3 台</td><td class="table-link">${t[4]}</td><td>${badge(i===1?"分配后异常":"已分配",i===1?"red":"green")}</td><td>${18+i*4} ms</td><td><button class="btn ghost small js-detail" data-kind="调度记录" data-id="${t[0]}">详情 →</button></td></tr>`);
+  const records = TASKS.map((t,i)=>`<tr class="drill-row" data-go="dispatch-record-detail.html"><td class="mono muted">10:${42-i*3}:${18+i}</td><td class="id">${t[0]}</td><td>${i%2?"电量均衡":"最近距离优先"}</td><td>3 台</td><td class="table-link">${t[4]}</td><td>${badge(i===1?"分配后异常":"已分配",i===1?"red":"green")}</td><td>${18+i*4} ms</td><td><button class="btn ghost small" data-go="dispatch-record-detail.html">详情 →</button></td></tr>`);
   setActions(`<button class="btn">导出记录</button>`);
   content(`${toolbar({search:"搜索任务或 AMR",filters:["全部策略","全部结果"]})}${table(["时间","任务编号","调度策略","候选车辆","分配车辆","结果","耗时",""],records,["90px","145px","125px","80px","90px","100px","75px","70px"])}`);
+}
+
+function renderTaskDetail() {
+  setActions(`<button class="btn back-btn" data-go="task-list.html">← 返回实时任务</button><button class="btn" data-go="traffic-overview.html">在交通地图中定位</button>`);
+  content(`<div class="task-detail-hero"><div><span class="eyebrow">TASK INSTANCE</span><h2>TSK-260731-021</h2><p>CNC-07 发出物料不足请求 · 标准线边补料</p></div>${badge("执行中","blue")}</div><div class="task-flow"><div class="done"><b>1</b><span>接收请求<small>10:42:16</small></span></div><div class="done"><b>2</b><span>完成派单<small>AMR-03</small></span></div><div class="active"><b>3</b><span>行为树执行<small>前往取料点</small></span></div><div><b>4</b><span>任务完成<small>等待</small></span></div></div><div class="split-main"><section class="panel"><div class="panel-head"><span class="panel-title">任务运行信息</span></div><div class="panel-body"><div class="detail-grid"><div class="detail-item"><label>请求设备</label><strong>CNC-07</strong></div><div class="detail-item"><label>任务配置</label><strong>CFG-001 · 标准线边补料</strong></div><div class="detail-item"><label>执行 AMR</label><strong class="table-link">AMR-03</strong></div><div class="detail-item"><label>任务路线</label><strong>ST-01 → CNC-07</strong></div><div class="detail-item"><label>行为树</label><strong>标准补料流程 V2.4</strong></div><div class="detail-item"><label>调度策略</label><strong>最近距离优先</strong></div></div></div></section><aside class="panel"><div class="panel-head"><span class="panel-title">实时事件</span><span class="live-indicator"><i></i> 更新中</span></div><div class="panel-body"><div class="timeline"><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>AMR-03 到达 ST-01</strong><small>10:47:52 · 行为树节点 ARRIVE_PICKUP</small></span></div><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>交通资源 ZONE-A3 已释放</strong><small>10:46:31 · 等待 18 秒</small></span></div><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>调度完成</strong><small>10:42:18 · AMR-03 / 22 ms</small></span></div></div></div></aside></div>`);
+}
+
+function renderDispatchRecordDetail() {
+  setActions(`<button class="btn back-btn" data-go="dispatch-records.html">← 返回调度记录</button>`);
+  content(`<div class="decision-banner"><span>DECISION / DSP-260731-1042</span><strong>最近距离优先 → AMR-03</strong><small>任务 TSK-260731-021 · 计算耗时 22 ms · 已分配</small></div><div class="split-main"><section class="panel"><div class="panel-head"><span class="panel-title">候选车辆评分</span></div><div class="panel-body">${table(["候选 AMR","距离","电量","任务负载","综合评分","结果"],[['AMR-03','6.4 m','62%','0','92.6',badge('已选择','green')],['AMR-01','9.8 m','86%','0','81.2',badge('未选择','gray')],['AMR-05','12.8 m','55%','1','63.5',badge('未选择','gray')]].map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`))}</div></section><aside class="panel"><div class="panel-head"><span class="panel-title">决策上下文</span></div><div class="panel-body"><div class="property-list"><div class="property"><span>任务配置</span><strong>CFG-001</strong></div><div class="property"><span>策略版本</span><strong>STR-001 / V1.6</strong></div><div class="property"><span>候选车辆</span><strong>3 台</strong></div><div class="property"><span>过滤车辆</span><strong>3 台</strong></div><div class="property"><span>运行范围</span><strong>2F / MAP-A</strong></div></div></div></aside></div>`);
 }
 
 function renderAgvList() {
@@ -654,7 +664,7 @@ function renderAgvList() {
 }
 
 function renderAgvDetail() {
-  setActions(`<button class="btn back-btn" data-go="agv-list.html">← 返回 AMR 列表</button><span class="action-divider"></span><button class="btn" data-go="traffic-overview.html">地图定位</button><button class="btn primary" data-go="task-create.html">创建指定任务</button>`);
+  setActions(`<button class="btn back-btn" data-go="agv-list.html">← 返回 AMR 列表</button><span class="action-divider"></span><button class="btn" data-go="traffic-overview.html">地图定位</button>`);
   content(`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">连接延迟</div><div class="stat-value">28<small>ms</small></div></div>
@@ -1122,8 +1132,11 @@ function bindCommonEvents() {
     if (mapSource?.dataset.source === "file") {
       openModal("导入地图文件", `<div class="upload-zone"><b>选择地图文件</b><span>支持研发配置的栅格地图格式，导入后先保存为草稿</span><button class="btn small">选择文件</button></div><div class="form-grid mt-14"><div class="form-row"><label>保存方式</label><select><option>创建当前地图的新版本</option><option>创建一张新地图</option></select></div><div class="form-row"><label>目标楼层</label><select><option>2F</option><option>1F</option></select></div></div>`, "开始导入");
     }
-    if (event.target.closest(".js-create-task")) {
-      openModal("确认创建任务", `<p>任务将使用“最近距离优先”策略，由平台自动选择 AMR。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>路线</label><strong>ST-01 → CNC-07</strong></div><div class="detail-item"><label>推荐车辆</label><strong>AMR-01</strong></div></div>`, "创建任务");
+    if (event.target.closest(".js-save-task-config")) {
+      openModal("启用任务配置", `<p>启用后，符合条件的设备请求将自动生成任务，并交由所选调度策略分配 AMR。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>请求匹配</label><strong>CNC 设备组 / 物料不足</strong></div><div class="detail-item"><label>执行链路</label><strong>标准补料流程 V2.4</strong></div></div>`, "确认启用");
+    }
+    if (event.target.closest(".js-save-draft")) {
+      toast("任务配置草稿已保存");
     }
     if (event.target.closest(".js-strategy-test")) {
       const target = document.getElementById("strategyResult");
@@ -1176,9 +1189,13 @@ function renderPage() {
   if (PAGE_ID === "map-list") return renderMapList();
   if (PAGE_ID === "map-editor") return renderMapEditor();
   if (PAGE_ID === "task-list") return renderTaskList();
-  if (PAGE_ID === "task-create") return renderTaskCreate();
+  if (PAGE_ID === "task-detail") return renderTaskDetail();
+  if (PAGE_ID === "task-config") return renderTaskConfig();
+  if (PAGE_ID === "task-config-create" || PAGE_ID === "task-config-edit") return renderTaskConfigEditor();
   if (PAGE_ID === "dispatch-strategies") return renderStrategies();
+  if (PAGE_ID === "dispatch-strategy-detail") return renderStrategyDetail();
   if (PAGE_ID === "dispatch-records") return renderDispatchRecords();
+  if (PAGE_ID === "dispatch-record-detail") return renderDispatchRecordDetail();
   if (PAGE_ID === "agv-list") return renderAgvList();
   if (PAGE_ID === "agv-detail") return renderAgvDetail();
   if (PAGE_ID === "agv-models") return renderAgvModels();
