@@ -6,19 +6,19 @@ const NAV = [
     ["dashboard", "运行总览", "OV"]
   ]},
   { id: "dispatch", label: "派单管理", file: "task-list.html", children: [
-    ["task-list", "实时任务", "RT"],
+    ["task-list", "任务中心", "TC"],
     ["task-config", "任务配置", "CF"],
     ["dispatch-strategies", "调度策略", "ST"],
-    ["dispatch-records", "调度记录", "RC"]
+    ["dispatch-records", "任务日志", "LG"]
+  ]},
+  { id: "behavior", label: "行为树管理", file: "behavior-monitor.html", children: [
+    ["behavior-monitor", "行为树监控", "MN"],
+    ["behavior-trees", "行为树列表", "BT"]
   ]},
   { id: "traffic", label: "交通管制", file: "traffic-overview.html", children: [
     ["traffic-overview", "交通态势", "TF"],
     ["traffic-resources", "管制资源", "RS"],
     ["traffic-records", "管制记录", "RC"]
-  ]},
-  { id: "behavior", label: "行为树管理", file: "behavior-trees.html", children: [
-    ["behavior-trees", "行为树列表", "BT"],
-    ["behavior-editor", "基础编辑示意", "ED"]
   ]},
   { id: "map", label: "地图管理", file: "map-editor.html", children: [
     ["map-editor", "地图编辑器", "ED"],
@@ -52,15 +52,15 @@ const PAGE_META = {
   "traffic-records": ["管制记录", "追踪路权申请、占用释放、冲突与人工干预记录"],
   "map-editor": ["地图编辑器", "编辑全局运行范围中当前选中的地图及其业务图层"],
   "map-list": ["地图管理", "创建地图记录并管理楼层归属、来源、版本与发布状态"],
-  "task-list": ["实时任务", "集中掌握设备请求、任务阶段、执行车辆与现场异常"],
+  "task-list": ["任务中心", "从设备请求进入平台开始，统一追踪任务匹配、调度、执行与最终关闭"],
   "task-config": ["任务配置", "维护设备请求可匹配的标准任务模板与执行规则"],
-  "task-detail": ["任务详情", "查看任务从设备请求到执行完成的实时过程"],
+  "task-detail": ["任务单详情", "查看 CNC 请求、车辆调度、行为树执行和交付闭环"],
   "task-config-create": ["新建任务配置", "定义设备请求、物流路线、行为树与派单约束"],
   "task-config-edit": ["编辑任务配置", "调整标准任务模板及其请求匹配规则"],
   "dispatch-strategies": ["调度策略", "配置研发提供的调度类型和可调参数"],
   "dispatch-strategy-detail": ["调度策略详情", "维护策略参数并查看受影响的任务配置"],
-  "dispatch-records": ["调度记录", "追踪每次任务分配所采用的策略与结果"],
-  "dispatch-record-detail": ["调度记录详情", "还原一次任务分配的候选车辆、决策依据与结果"],
+  "dispatch-records": ["任务日志", "查询任务从请求进入、调度、执行到关闭的完整事件记录"],
+  "dispatch-record-detail": ["任务日志详情", "查看单条任务事件的上下文、输入输出和关联对象"],
   "agv-list": ["AMR 列表", "集中查看单品牌 AMR 的运行与连接状态"],
   "agv-detail": ["AMR-03 详情", "查看单车状态、任务、事件和基础配置"],
   "agv-models": ["型号配置", "维护当前品牌 AMR 的展示参数与基础规格"],
@@ -71,7 +71,8 @@ const PAGE_META = {
   "api-workbench": ["API 测试工作台", "配置请求并查看响应、耗时和错误信息"],
   "api-history": ["请求历史", "复用最近请求和已保存的测试用例"],
   "behavior-trees": ["行为树列表", "管理 AMR 执行流程及行为树版本"],
-  "behavior-editor": ["基础编辑示意", "查看行为树节点、连线和基础属性布局"],
+  "behavior-monitor": ["行为树监控", "集中查看 AMR 当前执行的行为树实例与节点状态"],
+  "behavior-editor": ["行为树编辑器", "编辑行为树节点、连线和节点属性"],
   users: ["用户管理", "管理平台用户、状态和角色"],
   roles: ["角色权限", "配置模块权限和高风险操作权限"],
   configurations: ["配置管理", "维护前端可见的系统参数与环境设置"],
@@ -111,6 +112,7 @@ const DEVICES = [
 
 function moduleForPage(pageId) {
   if (pageId === "agv-detail" || pageId === "device-detail") return NAV.find(item => item.id === "resource");
+  if (pageId === "behavior-editor") return NAV.find(item => item.id === "behavior");
   if (["task-detail","task-config-create","task-config-edit","dispatch-strategy-detail","dispatch-record-detail"].includes(pageId)) return NAV.find(item => item.id === "dispatch");
   return NAV.find(item => item.children.some(child => child[0] === pageId)) || NAV[0];
 }
@@ -128,10 +130,10 @@ function renderShell() {
   const meta = PAGE_META[PAGE_ID] || PAGE_META.dashboard;
   const isHome = PAGE_ID === "dashboard";
   const primary = NAV.map(item => `<a class="${item.id === module.id ? "active" : ""}" href="${pageHref(item.file)}">${item.label}</a>`).join("");
-  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : PAGE_ID === "task-detail" ? "task-list" : ["task-config-create","task-config-edit"].includes(PAGE_ID) ? "task-config" : PAGE_ID === "dispatch-strategy-detail" ? "dispatch-strategies" : PAGE_ID === "dispatch-record-detail" ? "dispatch-records" : "";
+  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : PAGE_ID === "task-detail" ? "task-list" : ["task-config-create","task-config-edit"].includes(PAGE_ID) ? "task-config" : PAGE_ID === "dispatch-strategy-detail" ? "dispatch-strategies" : PAGE_ID === "dispatch-record-detail" ? "dispatch-records" : PAGE_ID === "behavior-editor" ? "behavior-trees" : "";
   const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID || child[0] === parentList ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
-  const dispatchParent = {"task-detail":"实时任务","task-config-create":"任务配置","task-config-edit":"任务配置","dispatch-strategy-detail":"调度策略","dispatch-record-detail":"调度记录"}[PAGE_ID];
-  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : dispatchParent ? `${module.label} / ${dispatchParent} / ${meta[0]}` : `${module.label} / ${meta[0]}`;
+  const dispatchParent = {"task-detail":"任务中心","task-config-create":"任务配置","task-config-edit":"任务配置","dispatch-strategy-detail":"调度策略","dispatch-record-detail":"任务日志"}[PAGE_ID];
+  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : PAGE_ID === "behavior-editor" ? `${module.label} / 行为树列表 / ${meta[0]}` : dispatchParent ? `${module.label} / ${dispatchParent} / ${meta[0]}` : `${module.label} / ${meta[0]}`;
 
   document.body.innerHTML = `
     <header class="topbar">
@@ -159,7 +161,6 @@ function renderShell() {
         <div>
           <div class="breadcrumb">${breadcrumb}</div>
           <h1 class="page-title">${meta[0]}</h1>
-          <p class="page-description">${meta[1]}</p>
         </div>
         <div class="page-actions" id="pageActions"></div>
       </section>
@@ -353,9 +354,8 @@ function renderDashboard() {
           </div>
         </aside>
         <div class="twin-stage-visual">
-          <img src="../assets/images/digital-twin-factory.png" alt="厂内物流AMR三维数字孪生静态效果图">
+          <img src="../assets/images/digital-twin-factory-selected.png" alt="CNC车间AMR数字孪生背景">
           <div class="twin-visual-shade"></div>
-          <div class="twin-visual-label"><span>DIGITAL TWIN · STATIC PREVIEW</span><strong class="js-current-context">2F / MAP-A</strong></div>
         </div>
         <aside class="hud-side right">
           <div class="hud-block hud-task-list">
@@ -546,19 +546,25 @@ function renderMapEditor() {
 
 function renderTaskList() {
   setActions(`<span class="live-indicator"><i></i> 实时更新</span>`);
-  const stages = ["前往取料点","等待机台放行","前往交付点","调度异常","等待可用 AMR","任务已完成"];
-  const sources = ["CNC-07","CNC-04","CNC-02","ST-03","BUF-01","CNC-08"];
-  const elapsed = ["06:18","02:46","等待 01:32","异常 00:48","排队 03:09","完成 10:24"];
-  const rows = TASKS.map((t,i)=>`<tr class="drill-row" data-go="task-detail.html"><td class="id">${t[0]}</td><td><strong>${sources[i]}</strong><small class="cell-note">设备请求</small></td><td>${t[1]}<small class="cell-note">${t[2]} → ${t[3]}</small></td><td><span class="task-stage"><i style="--progress:${Math.min(88,18+i*13)}%"></i></span><small class="cell-note">${stages[i]}</small></td><td class="table-link">${t[4]}</td><td>${badge(t[5],statusTone(t[5]))}</td><td class="mono ${i===1?'text-red':'muted'}">${elapsed[i]}</td><td><button class="btn ghost small" data-go="task-detail.html">查看 →</button></td></tr>`);
+  const orders = [
+    ["TSK-260804-001","REQ-260804-001","CNC-01","加工完成","CNC-01 → BUF-01","前往缓冲区","AMR-01","执行中","08:42","blue",78],
+    ["TSK-260804-002","REQ-260804-002","CNC-04","加工完成","待匹配","匹配任务配置","—","待处理","00:18","amber",18],
+    ["TSK-260804-003","REQ-260804-003","CNC-02","物料不足","ST-01 → CNC-02","等待可用车辆","—","待调度","01:26","amber",30],
+    ["TSK-260804-004","REQ-260804-004","CNC-07","加工完成","CNC-07 → BUF-02","等待 ZONE-A3","AMR-03","等待中","02:12","amber",62],
+    ["TSK-260804-005","REQ-260804-005","CNC-03","加工完成","CNC-03 → BUF-01","CNC 握手超时","AMR-04","异常","05:39","red",48],
+    ["TSK-260804-006","REQ-260804-006","CNC-08","加工完成","CNC-08 → BUF-03","业务已关闭","AMR-02","已完成","12:05","green",100]
+  ];
+  const rows = orders.map(o=>`<tr class="drill-row" data-go="task-detail.html"><td><strong class="id">${o[0]}</strong><small class="cell-note">${o[1]}</small></td><td><strong>${o[2]}</strong><small class="cell-note">${o[3]}</small></td><td>${o[4]}</td><td><span class="task-stage ${o[9]}"><i style="--progress:${o[10]}%"></i></span><small class="cell-note">${o[5]}</small></td><td class="table-link">${o[6]}</td><td>${badge(o[7],o[9])}</td><td class="mono ${o[9]==='red'?'text-red':'muted'}">${o[8]}</td><td><button class="btn ghost small" data-go="task-detail.html">查看 →</button></td></tr>`);
   content(`
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">待调度</div><div class="stat-value">2</div></div>
-      <div class="stat-card cyan"><div class="stat-label">执行中</div><div class="stat-value">3</div></div>
-      <div class="stat-card amber"><div class="stat-label">等待</div><div class="stat-value">1</div></div>
-      <div class="stat-card red"><div class="stat-label">异常</div><div class="stat-value">1</div></div>
+    <div class="task-kpi-strip">
+      <div><span>今日任务单</span><strong>36</strong><small>设备请求 36</small></div>
+      <div><span>待处理 / 待调度</span><strong>3</strong><small>最长等待 01:26</small></div>
+      <div><span>执行中 / 等待中</span><strong>8</strong><small>AMR 在线 6 台</small></div>
+      <div class="warning"><span>异常待处理</span><strong>1</strong><small>CNC 握手超时</small></div>
+      <div><span>今日完成率</span><strong>96.4%</strong><small>已闭环 27 单</small></div>
     </div>
-    ${toolbar({search:"搜索任务、请求设备或 AMR",filters:["全部运行状态","全部任务类型","全部来源设备"],right:`<span class="muted">最后更新 14:32:08</span>`})}
-    ${table(["任务编号","请求来源","任务与路线","当前执行阶段","执行 AMR","状态","持续时间",""],rows,["145px","105px","160px","150px","90px","90px","100px","65px"])}
+    ${toolbar({search:"搜索任务单、请求编号、设备或 AMR",filters:["全部任务类型","全部来源设备"],right:`<span class="muted">最后更新 11:28:42</span>`})}
+    ${table(["任务单 / 请求","请求来源","任务路线","当前阶段","执行 AMR","状态","持续时间",""],rows,["160px","110px","155px","155px","90px","85px","90px","65px"])}
   `);
 }
 
@@ -566,7 +572,7 @@ function renderTaskConfig() {
   setActions(`<button class="btn primary" data-go="task-config-create.html">＋ 新建任务配置</button>`);
   const configs = [
     ["CFG-001","线边补料","CNC 请求缺料","ST-01 → 请求机台","标准补料流程","最近距离优先","启用","12"],
-    ["CFG-002","成品转运","机台加工完成","请求机台 → BUF-02","成品下料流程","电量均衡","启用","8"],
+    ["CFG-002","成品转运","机台加工完成","请求机台 → BUF-01","成品下料流程","最近距离优先","启用","8"],
     ["CFG-003","空箱回收","空箱数量达阈值","请求机台 → REC-01","空箱回收流程","最近距离优先","启用","5"],
     ["CFG-004","紧急叫料","MES 紧急请求","WARE-01 → 请求设备","紧急配送流程","高优先级抢占","停用","0"]
   ];
@@ -580,9 +586,9 @@ function renderTaskConfigEditor() {
   content(`
     <div class="config-editor-grid">
       <div class="config-editor-main">
-        ${configSection("01","基础信息",`<div class="form-grid"><div class="form-row"><label>配置名称 *</label><input value="${editing?'标准线边补料':''}" placeholder="例如：标准线边补料"></div><div class="form-row"><label>任务类型 *</label><select><option>线边补料</option><option>成品转运</option><option>空箱回收</option></select></div><div class="form-row"><label>运行范围 *</label><select><option>2F / MAP-A</option></select></div><div class="form-row"><label>默认优先级</label><select><option>普通</option><option>高</option><option>低</option></select></div></div>`)}
-        ${configSection("02","请求触发",`<div class="form-grid"><div class="form-row"><label>请求来源 *</label><select><option>机台设备</option><option>API 请求</option></select></div><div class="form-row"><label>设备范围 *</label><select><option>CNC 设备组</option><option>指定设备</option></select></div><div class="form-row"><label>请求事件 *</label><select><option>物料不足</option><option>加工完成</option></select></div><div class="form-row"><label>重复请求抑制</label><select><option>同设备存在未完成任务时忽略</option><option>进入等待队列</option></select></div></div>`)}
-        ${configSection("03","任务路线",`<div class="form-grid"><div class="form-row"><label>取货点 *</label><select><option>ST-01 · 一号上料站</option><option>请求参数指定</option></select></div><div class="form-row"><label>交付点 *</label><select><option>请求设备绑定点</option><option>固定站点</option></select></div><div class="form-row full"><label>中间点</label><input placeholder="可选；按执行顺序添加"></div></div><div class="route-preview"><span>ST-01</span><i></i><span>请求设备绑定点</span></div>`)}
+        ${configSection("01","基础信息",`<div class="form-grid"><div class="form-row"><label>配置名称 *</label><input value="${editing?'CNC 成品转运':''}" placeholder="例如：CNC 成品转运"></div><div class="form-row"><label>任务类型 *</label><select><option>成品转运</option><option>线边补料</option><option>空箱回收</option></select></div><div class="form-row"><label>运行范围 *</label><select><option>2F / MAP-A</option></select></div><div class="form-row"><label>默认优先级</label><select><option>普通</option><option>高</option><option>低</option></select></div></div>`)}
+        ${configSection("02","请求触发",`<div class="form-grid"><div class="form-row"><label>请求来源 *</label><select><option>机台设备</option><option>API 请求</option></select></div><div class="form-row"><label>设备范围 *</label><select><option>CNC 设备组</option><option>指定设备 CNC-01</option></select></div><div class="form-row"><label>请求事件 *</label><select><option>加工完成</option><option>物料不足</option></select></div><div class="form-row"><label>重复请求抑制</label><select><option>同设备存在未完成任务时忽略</option><option>进入等待队列</option></select></div></div>`)}
+        ${configSection("03","任务路线",`<div class="form-grid"><div class="form-row"><label>取货点 *</label><select><option>请求设备绑定点</option><option>固定站点</option></select></div><div class="form-row"><label>交付点 *</label><select><option>BUF-01 · 成品缓冲区</option><option>请求参数指定</option></select></div><div class="form-row full"><label>中间点</label><input placeholder="可选；按执行顺序添加"></div></div><div class="route-preview"><span>请求设备绑定点</span><i></i><span>BUF-01</span></div>`)}
         ${configSection("04","执行与派单",`<div class="form-grid"><div class="form-row"><label>行为树 *</label><select><option>标准补料流程 · V2.4</option><option>成品下料流程 · V1.8</option></select></div><div class="form-row"><label>调度策略 *</label><select><option>最近距离优先</option><option>电量均衡</option></select><span class="form-help">策略参数在“调度策略”中统一维护</span></div><div class="form-row"><label>AMR 能力要求</label><select><option>潜伏顶升 / 载重 ≥ 500 kg</option></select></div><div class="form-row"><label>无可用车辆</label><select><option>进入等待队列并告警</option><option>仅进入等待队列</option></select></div><div class="form-row"><label>最低接单电量</label><input value="30%"></div><div class="form-row"><label>执行超时</label><input value="30 分钟"></div></div>`)}
       </div>
       <aside class="config-editor-side">
@@ -629,7 +635,7 @@ function renderStrategyDetail() {
         <div class="panel-body">
           <p class="muted" style="font-size:11px;line-height:1.8">前端只呈现研发提供的参数。权重越高，代表该条件在分配结果中的影响越明显。</p>
           <div class="detail-grid" style="grid-template-columns:repeat(2,1fr)">
-            <div class="detail-item"><label>模拟任务</label><strong>ST-01 → CNC-07</strong></div>
+            <div class="detail-item"><label>模拟任务</label><strong>CNC-01 → BUF-01</strong></div>
             <div class="detail-item"><label>候选车辆</label><strong>3 台</strong></div>
             <div class="detail-item"><label>分配结果</label><strong style="color:var(--blue)">AMR-01</strong></div>
             <div class="detail-item"><label>计算耗时</label><strong>18 ms</strong></div>
@@ -642,19 +648,56 @@ function renderStrategyDetail() {
 }
 
 function renderDispatchRecords() {
-  const records = TASKS.map((t,i)=>`<tr class="drill-row" data-go="dispatch-record-detail.html"><td class="mono muted">10:${42-i*3}:${18+i}</td><td class="id">${t[0]}</td><td>${i%2?"电量均衡":"最近距离优先"}</td><td>3 台</td><td class="table-link">${t[4]}</td><td>${badge(i===1?"分配后异常":"已分配",i===1?"red":"green")}</td><td>${18+i*4} ms</td><td><button class="btn ghost small" data-go="dispatch-record-detail.html">详情 →</button></td></tr>`);
-  setActions(`<button class="btn">导出记录</button>`);
-  content(`${toolbar({search:"搜索任务或 AMR",filters:["全部策略","全部结果"]})}${table(["时间","任务编号","调度策略","候选车辆","分配车辆","结果","耗时",""],records,["90px","145px","125px","80px","90px","100px","75px","70px"])}`);
+  const logs = [
+    ["11:27:56.418","LOG-001","TSK-260804-001","行为树","AMR-01","NAVIGATE_TO_BUFFER","开始导航至 BUF-01","运行中","blue"],
+    ["11:26:41.205","LOG-002","TSK-260804-001","交通管制","ZONE-B1","RESOURCE_ACQUIRED","获得交通资源通行权","成功","green"],
+    ["11:25:38.794","LOG-003","TSK-260804-001","设备握手","CNC-01","PICKUP_CONFIRMED","CNC 确认成品已取走","成功","green"],
+    ["11:24:52.116","LOG-004","TSK-260804-001","行为树","AMR-01","PICK_PRODUCT","执行顶升取货动作","成功","green"],
+    ["11:23:16.640","LOG-005","TSK-260804-001","导航","AMR-01","ARRIVE_CNC","AMR 到达 CNC-01 取货位","成功","green"],
+    ["11:20:03.022","LOG-006","TSK-260804-001","任务调度","DSP-260804-001","AMR_ASSIGNED","最近距离优先选择 AMR-01","成功","green"],
+    ["11:20:02.481","LOG-007","TSK-260804-001","任务匹配","CFG-002","CONFIG_MATCHED","匹配成品转运配置 V1.3","成功","green"],
+    ["11:20:01.248","LOG-008","TSK-260804-001","设备请求","CNC-01","REQUEST_RECEIVED","接收 CNC 加工完成请求","成功","green"],
+    ["11:15:44.086","LOG-009","TSK-260804-003","任务调度","STR-001","NO_AVAILABLE_AMR","没有符合条件的可用车辆","失败","red"]
+  ];
+  const rows = logs.map(r=>`<tr class="drill-row" data-go="dispatch-record-detail.html"><td class="mono muted">${r[0]}</td><td class="id">${r[1]}</td><td class="id">${r[2]}</td><td>${r[3]}</td><td class="table-link">${r[4]}</td><td class="mono">${r[5]}</td><td>${r[6]}</td><td>${badge(r[7],r[8])}</td><td><button class="btn ghost small" data-go="dispatch-record-detail.html">查看</button></td></tr>`);
+  setActions(`<button class="btn">导出日志</button>`);
+  content(`${toolbar({search:"搜索任务单、日志编号、对象或 Trace ID",filters:["全部日志类型","全部结果"]})}${table(["时间","日志编号","任务单","日志类型","关联对象","行为节点 / 事件","事件说明","结果",""],rows,["110px","90px","130px","90px","100px","160px","190px","80px","65px"])}`);
 }
 
 function renderTaskDetail() {
-  setActions(`<button class="btn back-btn" data-go="task-list.html">← 返回实时任务</button><button class="btn" data-go="traffic-overview.html">在交通地图中定位</button>`);
-  content(`<div class="task-detail-hero"><div><span class="eyebrow">TASK INSTANCE</span><h2>TSK-260731-021</h2><p>CNC-07 发出物料不足请求 · 标准线边补料</p></div>${badge("执行中","blue")}</div><div class="task-flow"><div class="done"><b>1</b><span>接收请求<small>10:42:16</small></span></div><div class="done"><b>2</b><span>完成派单<small>AMR-03</small></span></div><div class="active"><b>3</b><span>行为树执行<small>前往取料点</small></span></div><div><b>4</b><span>任务完成<small>等待</small></span></div></div><div class="split-main"><section class="panel"><div class="panel-head"><span class="panel-title">任务运行信息</span></div><div class="panel-body"><div class="detail-grid"><div class="detail-item"><label>请求设备</label><strong>CNC-07</strong></div><div class="detail-item"><label>任务配置</label><strong>CFG-001 · 标准线边补料</strong></div><div class="detail-item"><label>执行 AMR</label><strong class="table-link">AMR-03</strong></div><div class="detail-item"><label>任务路线</label><strong>ST-01 → CNC-07</strong></div><div class="detail-item"><label>行为树</label><strong>标准补料流程 V2.4</strong></div><div class="detail-item"><label>调度策略</label><strong>最近距离优先</strong></div></div></div></section><aside class="panel"><div class="panel-head"><span class="panel-title">实时事件</span><span class="live-indicator"><i></i> 更新中</span></div><div class="panel-body"><div class="timeline"><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>AMR-03 到达 ST-01</strong><small>10:47:52 · 行为树节点 ARRIVE_PICKUP</small></span></div><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>交通资源 ZONE-A3 已释放</strong><small>10:46:31 · 等待 18 秒</small></span></div><div class="timeline-item"><i class="time-dot"></i><span class="timeline-copy"><strong>调度完成</strong><small>10:42:18 · AMR-03 / 22 ms</small></span></div></div></div></aside></div>`);
+  setActions(`<button class="btn back-btn" data-go="task-list.html">← 返回任务中心</button><button class="btn" data-go="traffic-overview.html">在地图中定位</button><button class="btn danger">暂停任务</button>`);
+  content(`
+    <div class="task-detail-hero"><div><span class="eyebrow">TASK ORDER · TRACE-260804-001</span><h2>TSK-260804-001</h2><p>CNC-01 加工完成，请求 AMR 将成品搬运至 BUF-01</p></div><div class="hero-status">${badge("执行中","blue")}<small>已运行 08:42</small></div></div>
+    <div class="runtime-summary-grid"><div><small>执行车辆</small><strong data-go="agv-detail.html">AMR-01</strong><span>电量 82% · 已载货</span></div><div><small>当前位置</small><strong>ZONE-B1</strong><span>速度 1.1 m/s</span></div><div><small>目标站点</small><strong>BUF-01</strong><span>预计 01:36 后到达</span></div><div><small>当前节点</small><strong>NAVIGATE_TO_BUFFER</strong><span>已运行 00:45</span></div><div><small>执行进度</small><strong>9 / 14</strong><span>行为树实例 BTI-260804-001</span></div></div>
+    <section class="panel behavior-runtime-panel">
+      <div class="panel-head"><div><span class="panel-title">行为树执行工作流</span><small class="panel-subtitle">成品下料流程 V1.8 · BTI-260804-001</small></div><span class="live-indicator"><i></i> 实时更新</span></div>
+      <div class="panel-body behavior-runtime-body">
+        <div class="workflow-phase"><div class="phase-label"><b>01</b><span>请求与派单</span></div><div class="behavior-node-row"><div class="behavior-runtime-node done"><i>✓</i><span><strong>接收设备请求</strong><small>RECEIVE_REQUEST · 11:20:01</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>匹配任务配置</strong><small>MATCH_CONFIG · CFG-002</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>调度执行车辆</strong><small>DISPATCH_AMR · AMR-01</small></span></div></div></div>
+        <div class="workflow-phase"><div class="phase-label"><b>02</b><span>CNC 取货</span></div><div class="behavior-node-row"><div class="behavior-runtime-node done"><i>✓</i><span><strong>导航至 CNC-01</strong><small>NAVIGATE_TO_CNC · 02:51</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>申请取货区路权</strong><small>ACQUIRE_ZONE_A3 · 18s</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>等待 CNC 放行</strong><small>WAIT_CNC_READY · 36s</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>执行顶升取货</strong><small>PICK_PRODUCT · 46s</small></span></div><div class="behavior-connector done"></div><div class="behavior-runtime-node done"><i>✓</i><span><strong>确认载货状态</strong><small>VERIFY_LOAD · 已载货</small></span></div></div></div>
+        <div class="workflow-phase current"><div class="phase-label"><b>03</b><span>缓冲区交付</span></div><div class="behavior-node-row"><div class="behavior-runtime-node active"><i><span></span></i><span><strong>导航至 BUF-01</strong><small>NAVIGATE_TO_BUFFER · 运行 00:45</small></span><em>当前</em></div><div class="behavior-connector"></div><div class="behavior-runtime-node pending"><i>10</i><span><strong>申请缓冲区路权</strong><small>ACQUIRE_BUFFER_ZONE</small></span></div><div class="behavior-connector"></div><div class="behavior-runtime-node pending"><i>11</i><span><strong>等待 BUF 放行</strong><small>WAIT_BUFFER_READY</small></span></div><div class="behavior-connector"></div><div class="behavior-runtime-node pending"><i>12</i><span><strong>执行放货</strong><small>UNLOAD_PRODUCT</small></span></div></div></div>
+        <div class="workflow-phase"><div class="phase-label"><b>04</b><span>确认与关闭</span></div><div class="behavior-node-row"><div class="behavior-runtime-node pending"><i>13</i><span><strong>确认交付完成</strong><small>VERIFY_DELIVERY</small></span></div><div class="behavior-connector"></div><div class="behavior-runtime-node pending"><i>14</i><span><strong>释放资源并关闭</strong><small>RELEASE_AND_CLOSE</small></span></div></div></div>
+      </div>
+    </section>
+    <section class="panel mt-14"><div class="panel-head"><span class="panel-title">实时信号</span><button class="btn ghost small" data-go="dispatch-records.html">查看任务日志 →</button></div><div class="live-signal-grid"><div><span class="signal-dot green"></span><small>AMR连接</small><strong>在线 · 28 ms</strong></div><div><span class="signal-dot green"></span><small>载货传感器</small><strong>已触发</strong></div><div><span class="signal-dot blue"></span><small>交通资源</small><strong>ZONE-B1 已占用</strong></div><div><span class="signal-dot gray"></span><small>BUF-01握手</small><strong>等待到达</strong></div></div></section>`);
 }
 
 function renderDispatchRecordDetail() {
-  setActions(`<button class="btn back-btn" data-go="dispatch-records.html">← 返回调度记录</button>`);
-  content(`<div class="decision-banner"><span>DECISION / DSP-260731-1042</span><strong>最近距离优先 → AMR-03</strong><small>任务 TSK-260731-021 · 计算耗时 22 ms · 已分配</small></div><div class="split-main"><section class="panel"><div class="panel-head"><span class="panel-title">候选车辆评分</span></div><div class="panel-body">${table(["候选 AMR","距离","电量","任务负载","综合评分","结果"],[['AMR-03','6.4 m','62%','0','92.6',badge('已选择','green')],['AMR-01','9.8 m','86%','0','81.2',badge('未选择','gray')],['AMR-05','12.8 m','55%','1','63.5',badge('未选择','gray')]].map(r=>`<tr>${r.map(x=>`<td>${x}</td>`).join('')}</tr>`))}</div></section><aside class="panel"><div class="panel-head"><span class="panel-title">决策上下文</span></div><div class="panel-body"><div class="property-list"><div class="property"><span>任务配置</span><strong>CFG-001</strong></div><div class="property"><span>策略版本</span><strong>STR-001 / V1.6</strong></div><div class="property"><span>候选车辆</span><strong>3 台</strong></div><div class="property"><span>过滤车辆</span><strong>3 台</strong></div><div class="property"><span>运行范围</span><strong>2F / MAP-A</strong></div></div></div></aside></div>`);
+  setActions(`<button class="btn back-btn" data-go="dispatch-records.html">← 返回任务日志</button><button class="btn" data-go="task-detail.html">查看实时任务</button>`);
+  content(`
+    <div class="decision-banner"><span>TASK LOG / LOG-001</span><strong>NAVIGATE_TO_BUFFER · 开始导航至 BUF-01</strong><small>任务单 TSK-260804-001 · 2026-08-04 11:27:56.418 · 行为树事件</small></div>
+    <div class="log-context-grid">
+      <div><small>事件结果</small><strong>${badge("运行中","blue")}</strong></div><div><small>关联对象</small><strong>AMR-01</strong></div><div><small>行为树实例</small><strong>BTI-260804-001</strong></div><div><small>当前节点</small><strong>NAVIGATE_TO_BUFFER</strong></div><div><small>Trace ID</small><strong>TRACE-260804-001</strong></div>
+    </div>
+    <div class="split-main log-detail-layout">
+      <section class="panel"><div class="panel-head"><span class="panel-title">事件内容</span><span class="mono muted">SEQ 009 / 014</span></div><div class="panel-body">
+        <div class="detail-grid">
+          ${[["事件来源","BehaviorTreeEngine"],["事件类型","NODE_STARTED"],["执行 AMR","AMR-01"],["起始位置","ZONE-B1"],["目标站点","BUF-01"],["交通资源","ZONE-B1 · 已占用"],["任务配置","CFG-002 / V1.3"],["调度策略","STR-001 / V1.6"]].map(x=>`<div class="detail-item"><label>${x[0]}</label><strong>${x[1]}</strong></div>`).join("")}
+        </div>
+        <div class="log-message"><small>事件说明</small><strong>取货确认完成后，行为树进入缓冲区导航节点；AMR-01 已取得 ZONE-B1 路权并开始前往 BUF-01。</strong></div>
+      </div></section>
+      <aside class="panel"><div class="panel-head"><span class="panel-title">上下文快照</span></div><div class="panel-body"><div class="property-list"><div class="property"><span>原始请求</span><strong>REQ-260804-001</strong></div><div class="property"><span>请求设备</span><strong>CNC-01</strong></div><div class="property"><span>调度决策</span><strong>DSP-260804-001</strong></div><div class="property"><span>地图范围</span><strong>2F / MAP-A</strong></div><div class="property"><span>载货状态</span><strong>已载货</strong></div><div class="property"><span>预计到达</span><strong>01:36 后</strong></div></div></div></aside>
+    </div>
+    <section class="panel mt-14"><div class="panel-head"><span class="panel-title">相邻事件</span><button class="btn ghost small" data-go="dispatch-records.html">查看完整任务日志 →</button></div><div class="adjacent-events"><div class="done"><i>08</i><span><small>11:25:38.794</small><strong>PICKUP_CONFIRMED</strong><em>CNC-01 确认成品已取走</em></span></div><div class="active"><i>09</i><span><small>11:27:56.418</small><strong>NAVIGATE_TO_BUFFER</strong><em>当前事件</em></span></div><div><i>10</i><span><small>等待触发</small><strong>ACQUIRE_BUFFER_ZONE</strong><em>申请缓冲区路权</em></span></div></div></section>`);
 }
 
 function renderAgvList() {
@@ -818,6 +861,26 @@ function renderApi() {
 }
 
 function renderBehaviorTree() {
+  if (PAGE_ID === "behavior-monitor") {
+    setActions(`<span class="live-indicator"><i></i> 实时更新</span>`);
+    const cards = [
+      {id:"AMR-01",tone:"active",state:"执行中",source:"CNC-01",target:"BUF-01",task:"TSK-260804-001",tree:"成品下料 V1.8",node:"导航至缓冲区",code:"NAVIGATE_TO_BUFFER",progress:64,time:"00:45",step:"9 / 14"},
+      {id:"AMR-03",tone:"waiting",state:"等待",source:"CNC-07",target:"BUF-02",task:"TSK-260804-004",tree:"成品下料 V1.8",node:"等待 CNC 放行",code:"WAIT_CNC_READY",progress:43,time:"01:12",step:"6 / 14"},
+      {id:"AMR-04",tone:"error",state:"异常",source:"CNC-03",target:"BUF-01",task:"TSK-260804-005",tree:"成品下料 V1.8",node:"顶升取货失败",code:"PICK_PRODUCT",progress:50,time:"00:18",step:"7 / 14"},
+      {id:"AMR-05",tone:"queued",state:"等待执行",source:"CNC-08",target:"BUF-02",task:"TSK-260804-006",tree:"成品下料 V1.8",node:"等待调度完成",code:"DISPATCH_AMR",progress:14,time:"00:26",step:"2 / 14"}
+    ];
+    const cardHtml = cards.map((c,i)=>`<button class="bt-monitor-card ${c.tone} ${i===0?"selected":""}" data-bt-card data-amr="${c.id}" data-source="${c.source}" data-target="${c.target}" data-task="${c.task}" data-tree="${c.tree}" data-node="${c.node}" data-code="${c.code}" data-progress="${c.progress}" data-time="${c.time}" data-step="${c.step}" data-state="${c.state}"><span class="bt-card-head"><strong>${c.id}</strong>${badge(c.state,c.tone==="error"?"red":c.tone==="waiting"?"amber":c.tone==="queued"?"gray":"blue")}</span><span class="bt-card-route"><b>${c.source}</b><i></i><b>${c.target}</b></span><span class="bt-card-task">${c.task} · ${c.tree}</span><span class="bt-card-node"><small>当前节点</small><strong>${c.node}</strong><em>${c.code}</em></span><span class="bt-card-progress"><i style="width:${c.progress}%"></i></span><span class="bt-card-foot"><small>${c.step} 节点</small><small>运行 ${c.time}</small></span></button>`).join("");
+    content(`
+      <div class="bt-monitor-stats"><div><span class="bt-stat-mark blue"></span><small>执行中</small><strong>1</strong></div><div><span class="bt-stat-mark amber"></span><small>等待</small><strong>2</strong></div><div><span class="bt-stat-mark red"></span><small>异常</small><strong>1</strong></div><div><span class="bt-stat-mark green"></span><small>今日完成</small><strong>27</strong></div><div class="bt-monitor-note"><small>监控范围</small><strong>当前全局楼层与地图</strong></div></div>
+      <section class="panel"><div class="panel-head"><span class="panel-title">AMR 执行实例</span><span class="muted">选择卡片查看完整节点工作流</span></div><div class="bt-monitor-grid">${cardHtml}</div></section>
+      <section class="panel mt-14 bt-instance-panel">
+        <div class="panel-head"><div><span class="panel-title"><b id="btSelectedAmr">AMR-01</b> · <span id="btSelectedTask">TSK-260804-001</span></span><small class="panel-subtitle" id="btSelectedTree">成品下料 V1.8</small></div><div class="bt-instance-actions"><span class="mono muted" id="btSelectedStep">9 / 14</span><button class="btn ghost small" data-go="task-detail.html">查看任务</button></div></div>
+        <div class="bt-instance-layout"><div class="bt-runtime-track">
+          <div class="bt-track-node done"><i>✓</i><span>接收请求<small>RECEIVE_REQUEST</small></span></div><b></b><div class="bt-track-node done"><i>✓</i><span>匹配配置<small>MATCH_CONFIG</small></span></div><b></b><div class="bt-track-node done"><i>✓</i><span>调度 AMR<small>DISPATCH_AMR</small></span></div><b></b><div class="bt-track-node done"><i>✓</i><span>CNC 取货<small>PICK_PRODUCT</small></span></div><b></b><div class="bt-track-node current"><i><span></span></i><span id="btSelectedNode">导航至缓冲区<small id="btSelectedCode">NAVIGATE_TO_BUFFER</small></span></div><b></b><div class="bt-track-node"><i>10</i><span>申请路权<small>ACQUIRE_ZONE</small></span></div><b></b><div class="bt-track-node"><i>12</i><span>缓冲区放货<small>UNLOAD_PRODUCT</small></span></div><b></b><div class="bt-track-node"><i>14</i><span>关闭任务<small>CLOSE_TASK</small></span></div>
+        </div><aside class="bt-node-context"><div class="context-head"><span>当前节点上下文</span><strong id="btSelectedState">执行中</strong></div><div class="property-list"><div class="property"><span>来源设备</span><strong id="btSelectedSource">CNC-01</strong></div><div class="property"><span>目标设备</span><strong id="btSelectedTarget">BUF-01</strong></div><div class="property"><span>节点耗时</span><strong id="btSelectedTime">00:45</strong></div><div class="property"><span>交通资源</span><strong>ZONE-B1 · 已占用</strong></div><div class="property"><span>重试次数</span><strong>0 / 2</strong></div></div><button class="btn ghost small full mt-14" data-go="dispatch-records.html">查看相关任务日志</button></aside></div>
+      </section>`);
+    return;
+  }
   if (PAGE_ID === "behavior-trees") {
     setActions(`<button class="btn primary" data-go="behavior-editor.html">＋ 新建行为树</button>`);
     const rows = [
@@ -1035,6 +1098,13 @@ function bindCommonEvents() {
 
     const detail = event.target.closest(".js-detail");
     if (detail) openDrawer(detail.dataset.kind || "对象", detail.dataset.id || "—");
+
+    const btCard = event.target.closest("[data-bt-card]");
+    if (btCard) {
+      document.querySelectorAll("[data-bt-card]").forEach(el => el.classList.toggle("selected", el === btCard));
+      const bind = {btSelectedAmr:"amr",btSelectedTask:"task",btSelectedTree:"tree",btSelectedNode:"node",btSelectedCode:"code",btSelectedStep:"step",btSelectedSource:"source",btSelectedTarget:"target",btSelectedTime:"time",btSelectedState:"state"};
+      Object.entries(bind).forEach(([id,key]) => { const el=document.getElementById(id); if(el) el.textContent=btCard.dataset[key]; });
+    }
 
     if (event.target.closest(".js-close-drawer")) closeDrawer();
     if (event.target.closest(".js-close-modal")) closeModal();
