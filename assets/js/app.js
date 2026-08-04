@@ -20,9 +20,9 @@ const NAV = [
     ["traffic-resources", "管制资源", "RS"],
     ["traffic-records", "管制记录", "RC"]
   ]},
-  { id: "map", label: "地图管理", file: "map-editor.html", children: [
-    ["map-editor", "地图编辑器", "ED"],
-    ["map-list", "地图管理", "MP"]
+  { id: "map", label: "地图管理", file: "map-list.html", children: [
+    ["map-list", "地图管理", "MP"],
+    ["map-logs", "地图日志", "LG"]
   ]},
   { id: "resource", label: "资源管理", file: "agv-list.html", children: [
     ["agv-list", "AMR 列表", "AM"],
@@ -50,8 +50,9 @@ const PAGE_META = {
   "traffic-overview": ["交通态势", "监控当前地图的路权、占用、等待队列与冲突状态"],
   "traffic-resources": ["管制资源", "管理路口、窄通道、区域及交通设备的运行规则"],
   "traffic-records": ["管制记录", "追踪路权申请、占用释放、冲突与人工干预记录"],
-  "map-editor": ["地图编辑器", "编辑全局运行范围中当前选中的地图及其业务图层"],
+  "map-editor": ["地图编辑器", "编辑指定地图的扫描底图、逻辑图层与空间资源"],
   "map-list": ["地图管理", "创建地图记录并管理楼层归属、来源、版本与发布状态"],
+  "map-logs": ["地图日志", "追踪地图创建、资料修改、逻辑编辑、发布与下发操作"],
   "task-list": ["任务中心", "从设备请求进入平台开始，统一追踪任务匹配、调度、执行与最终关闭"],
   "task-config": ["任务配置", "维护设备请求可匹配的标准任务模板与执行规则"],
   "task-detail": ["任务单详情", "查看 CNC 请求、车辆调度、行为树执行和交付闭环"],
@@ -113,6 +114,7 @@ const DEVICES = [
 function moduleForPage(pageId) {
   if (pageId === "agv-detail" || pageId === "device-detail") return NAV.find(item => item.id === "resource");
   if (pageId === "behavior-editor") return NAV.find(item => item.id === "behavior");
+  if (pageId === "map-editor") return NAV.find(item => item.id === "map");
   if (["task-detail","task-config-create","task-config-edit","dispatch-strategy-detail","dispatch-record-detail"].includes(pageId)) return NAV.find(item => item.id === "dispatch");
   return NAV.find(item => item.children.some(child => child[0] === pageId)) || NAV[0];
 }
@@ -130,10 +132,10 @@ function renderShell() {
   const meta = PAGE_META[PAGE_ID] || PAGE_META.dashboard;
   const isHome = PAGE_ID === "dashboard";
   const primary = NAV.map(item => `<a class="${item.id === module.id ? "active" : ""}" href="${pageHref(item.file)}">${item.label}</a>`).join("");
-  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : PAGE_ID === "task-detail" ? "task-list" : ["task-config-create","task-config-edit"].includes(PAGE_ID) ? "task-config" : PAGE_ID === "dispatch-strategy-detail" ? "dispatch-strategies" : PAGE_ID === "dispatch-record-detail" ? "dispatch-records" : PAGE_ID === "behavior-editor" ? "behavior-trees" : "";
+  const parentList = PAGE_ID === "agv-detail" ? "agv-list" : PAGE_ID === "device-detail" ? "device-list" : PAGE_ID === "task-detail" ? "task-list" : ["task-config-create","task-config-edit"].includes(PAGE_ID) ? "task-config" : PAGE_ID === "dispatch-strategy-detail" ? "dispatch-strategies" : PAGE_ID === "dispatch-record-detail" ? "dispatch-records" : PAGE_ID === "behavior-editor" ? "behavior-trees" : PAGE_ID === "map-editor" ? "map-list" : "";
   const secondary = module.children.map(child => `<a class="${child[0] === PAGE_ID || child[0] === parentList ? "active" : ""}" href="${pageHref(`${child[0]}.html`)}"><span class="nav-icon">${child[2]}</span>${child[1]}</a>`).join("");
   const dispatchParent = {"task-detail":"任务中心","task-config-create":"任务配置","task-config-edit":"任务配置","dispatch-strategy-detail":"调度策略","dispatch-record-detail":"任务日志"}[PAGE_ID];
-  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : PAGE_ID === "behavior-editor" ? `${module.label} / 行为树列表 / ${meta[0]}` : dispatchParent ? `${module.label} / ${dispatchParent} / ${meta[0]}` : `${module.label} / ${meta[0]}`;
+  const breadcrumb = PAGE_ID === "agv-detail" ? `${module.label} / AMR 列表 / ${meta[0]}` : PAGE_ID === "device-detail" ? `${module.label} / 设备列表 / ${meta[0]}` : PAGE_ID === "behavior-editor" ? `${module.label} / 行为树列表 / ${meta[0]}` : PAGE_ID === "map-editor" ? `${module.label} / 装配物流区 / ${meta[0]}` : dispatchParent ? `${module.label} / ${dispatchParent} / ${meta[0]}` : `${module.label} / ${meta[0]}`;
 
   document.body.innerHTML = `
     <header class="topbar">
@@ -272,7 +274,7 @@ function occupancyGridMap() {
       <pattern id="occGrid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0H0V20" fill="none" stroke="#d9dee2" stroke-width=".6"/></pattern>
       <filter id="pointSoft"><feGaussianBlur stdDeviation="1.2"/></filter>
     </defs>
-    <rect width="760" height="520" fill="#c9ced2"/>
+    <g class="scan-map-layer"><rect width="760" height="520" fill="#c9ced2"/>
     <path d="M38 40H718V472H38Z M75 72V445H692V72Z" fill="#70777d" fill-rule="evenodd" opacity=".36"/>
     <rect x="75" y="72" width="617" height="373" fill="#f3f5f6"/>
     <rect x="75" y="72" width="617" height="373" fill="url(#occGrid)" opacity=".7"/>
@@ -280,11 +282,14 @@ function occupancyGridMap() {
     <path d="M117 114H218V122H158V298H236V388H116V374H218V336H158V134H117ZM300 132H558V158H508V322H558V386H300V366H538V342H488V138H300Z" fill="#7c8489" opacity=".55"/>
     <g fill="#121619">${scanPoints.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.2"/>`).join("")}</g>
     <g fill="#343a3e" opacity=".4" filter="url(#pointSoft)">${scanPoints.filter((_,i)=>i%3===0).map(p=>`<circle cx="${p[0]+4}" cy="${p[1]-3}" r="4"/>`).join("")}</g>
-    <g fill="#52595e" opacity=".65"><circle cx="122" cy="186" r="2"/><circle cx="129" cy="191" r="1.5"/><circle cx="137" cy="188" r="2"/><circle cx="214" cy="238" r="2"/><circle cx="221" cy="244" r="1.6"/><circle cx="590" cy="212" r="2"/><circle cx="598" cy="218" r="1.7"/><circle cx="608" cy="214" r="2"/><circle cx="619" cy="365" r="2"/><circle cx="626" cy="371" r="1.5"/></g>
-    <path d="M122 350H226V310H370V236H548V350H610" fill="none" stroke="#1683f5" stroke-width="3" opacity=".82"/>
+    <g fill="#52595e" opacity=".65"><circle cx="122" cy="186" r="2"/><circle cx="129" cy="191" r="1.5"/><circle cx="137" cy="188" r="2"/><circle cx="214" cy="238" r="2"/><circle cx="221" cy="244" r="1.6"/><circle cx="590" cy="212" r="2"/><circle cx="598" cy="218" r="1.7"/><circle cx="608" cy="214" r="2"/><circle cx="619" cy="365" r="2"/><circle cx="626" cy="371" r="1.5"/></g></g>
+    <g class="logic-map-layer"><path d="M122 350H226V310H370V236H548V350H610" fill="none" stroke="#1683f5" stroke-width="3" opacity=".82"/>
     <path d="M122 350H226V310H370" fill="none" stroke="#55b7ff" stroke-width="8" opacity=".16"/>
     <g fill="#fff" stroke="#1683f5" stroke-width="3"><circle cx="122" cy="350" r="7"/><circle cx="226" cy="310" r="6"/><circle cx="370" cy="236" r="6"/><circle cx="548" cy="350" r="6"/><circle cx="610" cy="350" r="7"/></g>
-    <g transform="translate(371 236)"><circle r="13" fill="#1683f5"/><path d="M0-8L6 7L0 4L-6 7Z" fill="#fff"/></g>
+    <g class="logic-device" transform="translate(226 310)"><rect x="-31" y="-24" width="62" height="20" rx="3"/><text y="-11">CNC-01</text></g>
+    <g class="logic-device" transform="translate(610 350)"><rect x="-30" y="10" width="60" height="20" rx="3"/><text y="24">BUF-01</text></g>
+    <g class="traffic-zone"><rect x="338" y="204" width="66" height="66" rx="8"/><text x="347" y="221">ZONE-B1</text></g>
+    <g transform="translate(371 236)"><circle r="13" fill="#1683f5"/><path d="M0-8L6 7L0 4L-6 7Z" fill="#fff"/></g></g>
     <g class="occ-meta"><rect x="88" y="84" width="154" height="32" rx="3"/><text x="99" y="97">SLAM OCCUPANCY GRID</text><text x="99" y="108">RES 0.05 m · 760 × 520 px</text></g>
     <g class="occ-scale"><line x1="590" y1="426" x2="670" y2="426"/><line x1="590" y1="421" x2="590" y2="431"/><line x1="670" y1="421" x2="670" y2="431"/><text x="622" y="418">5 m</text></g>
     <g class="occ-origin" transform="translate(108 420)"><line x1="0" y1="0" x2="24" y2="0"/><line x1="0" y1="0" x2="0" y2="-24"/><text x="28" y="4">X</text><text x="-4" y="-29">Y</text><text x="8" y="16">MAP ORIGIN</text></g>
@@ -480,11 +485,11 @@ function renderTrafficRecords() {
     ["TRF-0184","10:43:58","路权等待","LIFT-01","AMR-05","TSK-260731-019","等待","18 秒","系统"],
     ["TRF-0183","10:42:46","冲突消解","INT-01","AMR-03","TSK-260731-021","已重规划","4.6 秒","系统"],
     ["TRF-0182","10:40:06","临时封锁","ZONE-B2","—","—","已生效","—","张凯"]
-  ].map(r=>`<tr><td class="id">${r[0]}</td><td class="mono">${r[1]}</td><td><b>${r[2]}</b></td><td>${r[3]}</td><td>${r[4]}</td><td class="id">${r[5]}</td><td>${badge(r[6],statusTone(r[6]))}</td><td>${r[7]}</td><td>${r[8]}</td><td><button class="btn small js-detail" data-kind="管制记录" data-id="${r[0]}">详情</button></td></tr>`);
+  ].map(r=>`<tr><td class="id">${r[0]}</td><td class="mono">${r[1]}</td><td><b>${r[2]}</b></td><td>${r[3]}</td><td>${r[4]}</td><td class="id">${r[5]}</td><td>${badge(r[6],statusTone(r[6]))}</td><td>${r[7]}</td><td>${r[8]}</td><td><button class="btn small js-detail" data-kind="管制记录" data-id="${r[0]}">查看</button></td></tr>`);
   content(`<div class="stats-row"><div class="stat-card"><div class="stat-label">今日路权申请</div><div class="stat-value">186<small>次</small></div><span class="stat-foot">成功率 98.9%</span></div><div class="stat-card cyan"><div class="stat-label">平均等待</div><div class="stat-value">4.8<small>秒</small></div><span class="stat-foot">较昨日 -0.6 秒</span></div><div class="stat-card amber"><div class="stat-label">冲突消解</div><div class="stat-value">2<small>次</small></div><span class="stat-foot">均已自动处理</span></div><div class="stat-card red"><div class="stat-label">人工干预</div><div class="stat-value">1<small>次</small></div><span class="stat-foot">临时封锁</span></div></div>${toolbar({search:"搜索记录、资源、AMR 或任务",filters:["全部事件","全部结果","今日"]})}${table(["记录编号","时间","事件","资源","AMR","关联任务","结果","等待时长","触发方","操作"],rows,["105px","75px","90px","90px","85px","135px","90px","85px","80px","65px"])}`);
 }
 
-function renderMapList() {
+function legacyRenderMapList() {
   setActions(`<button class="btn primary js-new-map">＋ 创建地图</button>`);
   const maps = [
     ["MAP-A","装配物流区","2F","AMR 扫描","已发布","V1.8","V1.9 草稿","07-31 09:40"],
@@ -494,7 +499,7 @@ function renderMapList() {
   content(`<div class="map-management-note"><span class="note-icon">i</span><div><strong>地图管理只维护地图实体与版本</strong><p>道路、点位、设备映射和管制区域请进入地图编辑器处理；切换当前地图后，顶部全局运行范围会同步更新。</p></div></div>${toolbar({search:"搜索地图编号或名称",filters:["全部楼层","全部来源","全部状态"]})}${table(["编号","地图名称","楼层","创建来源","状态","运行版本","编辑版本","更新时间","操作"],maps,["90px","18%","70px","100px","85px","90px","105px","110px","145px"])}`);
 }
 
-function renderMapEditor() {
+function legacyRenderMapEditor() {
   setActions(`<button class="btn js-map-import">导入地图 ▾</button><button class="btn js-validate">校验</button><button class="btn js-toast" data-message="V1.9 地图草稿已保存">保存草稿</button><button class="btn primary js-publish">发布 V1.9</button>`);
   content(`
     <div class="map-version-strip">
@@ -544,6 +549,162 @@ function renderMapEditor() {
     </div>`);
 }
 
+function legacyRenderMapListV2() {
+  setActions(`<button class="btn js-map-resource-manager">关联资源</button><button class="btn primary js-new-map">＋ 创建地图</button>`);
+  const maps = [
+    {id:"MAP-A",name:"装配物流区",floor:"2F",source:"AMR-03 扫描",state:"运行中",tone:"green",run:"V1.8",draft:"V1.9",amr:"6 / 6",device:"14 / 14",traffic:"12",readiness:92,time:"今日 14:36"},
+    {id:"MAP-B",name:"CNC 二号线测试区",floor:"1F",source:"文件导入",state:"待校验",tone:"amber",run:"—",draft:"V0.4",amr:"2 / 2",device:"7 / 9",traffic:"4",readiness:76,time:"昨日 16:12"},
+    {id:"MAP-C",name:"联调与仿真区",floor:"2F",source:"未添加底图",state:"待导入底图",tone:"gray",run:"—",draft:"V0.1",amr:"0 / 2",device:"0 / 4",traffic:"0",readiness:28,time:"07-29 14:35"}
+  ];
+  content(`
+    <section class="map-portfolio-head">
+      <div><span class="scope-kicker">MAP WORKSPACE</span><h2>地图项目</h2><p>先完成底图、AMR 与现场设备关联，再进入编辑器建立可运行的逻辑地图。</p></div>
+      <div class="map-portfolio-summary"><span><b>3</b>地图项目</span><span><b>1</b>运行中</span><span class="warning"><b>2</b>待完成配置</span></div>
+    </section>
+    ${toolbar({search:"搜索地图编号、名称或资源",filters:["全部楼层","全部状态"],right:`<span class="muted">运行地图由顶部范围统一切换</span>`})}
+    <div class="map-project-list">
+      ${maps.map((map,index)=>`<article class="map-project-card ${index===0?"active":""}">
+        <div class="map-project-identity"><span class="map-project-code">${map.id}</span><div><h3>${map.name}</h3><p>${map.floor} · ${map.source}</p></div>${badge(map.state,map.tone)}</div>
+        <div class="map-project-preview"><div class="mini-map-scan"><i></i><i></i><i></i><span></span></div><div class="map-preview-caption"><b>${map.run==="—"?"尚无运行版本":`${map.run} 正在运行`}</b><small>编辑草稿 ${map.draft}</small></div></div>
+        <div class="map-resource-readiness"><div><span>适用 AMR</span><strong>${map.amr}</strong></div><div><span>设备已定位</span><strong>${map.device}</strong></div><div><span>管制资源</span><strong>${map.traffic}</strong></div></div>
+        <div class="map-completion"><span><b>配置完成度</b><em>${map.readiness}%</em></span><i><b style="width:${map.readiness}%"></b></i><small>最后更新 ${map.time}</small></div>
+        <div class="map-project-actions"><button class="btn small js-map-overview" data-id="${map.id}">查看配置</button><button class="btn small js-map-resource-manager" data-id="${map.id}">资源关联</button><button class="btn primary small" data-go="map-editor.html">打开编辑器 →</button></div>
+      </article>`).join("")}
+    </div>`);
+}
+
+function legacyRenderMapEditorV2() {
+  setActions(`<button class="btn" data-go="map-list.html">← 返回地图管理</button><span class="action-divider"></span><button class="btn js-validate">运行校验</button><button class="btn js-toast" data-message="V1.9 草稿已保存">保存草稿</button><button class="btn primary js-publish">发布与下发</button>`);
+  content(`
+    <div class="map-version-strip">
+      <div><span class="scope-kicker">地图工程工作台</span><strong>MAP-A · 2F 装配物流区</strong></div>
+      <div class="version-pair"><span>运行版本 <b>V1.8</b>${badge("只读","green")}</span><i>基于</i><span>编辑草稿 <b>V1.9</b>${badge("未发布","amber")}</span></div>
+      <div class="version-save"><span class="dot"></span>自动保存完成 · 14:36</div>
+    </div>
+    <div class="editor-shell map-engineering-shell">
+      <aside class="work-pane">
+        <div class="editor-side-tabs"><button class="active" data-editor-tab="layers">图层</button><button data-editor-tab="resources">资源库 <b>3</b></button></div>
+        <div class="editor-side-panel" data-editor-panel="layers">
+          <div class="layer-group"><span>物理底图</span><label class="layer-row"><input class="js-layer-toggle" data-layer="scan" type="checkbox" checked><i class="layer-glyph scan"></i><b>AMR 扫描底图</b><small>锁定</small></label></div>
+          <div class="layer-group"><span>逻辑地图</span>${[["lane","导航拓扑","12 条"],["point","站点与端点","32 个"],["device","现场设备","14 台"],["traffic","交通管制","12 个"],["safety","禁行与限速","5 个"]].map((x,i)=>`<label class="layer-row ${i===0?"selected":""}"><input type="checkbox" checked><i class="layer-glyph ${x[0]}"></i><b>${x[1]}</b><small>${x[2]}</small></label>`).join("")}</div>
+        </div>
+        <div class="editor-side-panel hidden" data-editor-panel="resources">
+          <div class="resource-library-head"><span>已关联、尚未定位</span><b>3</b></div>
+          ${[["CNC-09","CNC 设备","DV"],["BUF-03","成品缓冲区","BF"],["GATE-03","自动门","GT"]].map(x=>`<button class="resource-library-item js-place-resource" data-resource="${x[0]}"><i>${x[2]}</i><span><b>${x[0]}</b><small>${x[1]}</small></span><em>拖入画布</em></button>`).join("")}
+        </div>
+      </aside>
+      <section class="map-pane" id="editorMap">
+        <div class="map-editor-commandbar">
+          <div class="command-tools"><button class="editor-command active" data-tool="select" title="选择 (V)">↖<small>选择</small></button><button class="editor-command" data-tool="lane">╱<small>道路</small></button><button class="editor-command" data-tool="point">●<small>站点</small></button><button class="editor-command" data-tool="area">□<small>管制区</small></button><button class="editor-command" data-tool="measure">↔<small>测距</small></button></div>
+          <div class="map-view-switch"><button data-map-view="scan">底图</button><button data-map-view="logic">逻辑图</button><button class="active" data-map-view="overlay">叠加</button></div>
+          <div class="zoom-tools"><button>−</button><span>100%</span><button>＋</button><button>适应</button></div>
+        </div>
+        <div class="map-stage editor-occupancy-stage">${occupancyGridMap()}</div>
+        <div class="map-canvas-legend"><span><i class="scan"></i>扫描底图</span><span><i class="route"></i>导航道路</span><span><i class="zone"></i>管制区域</span></div>
+        <div class="validation-bar" id="validationBar"><b>V1.9 草稿可编辑</b><span>已连接 12 条道路</span><span>3 个资源待定位</span><span class="muted">扫描底图为只读参照</span></div>
+      </section>
+      <aside class="work-pane">
+        <div class="pane-head"><span class="pane-title">对象属性</span>${badge("导航道路","blue")}</div>
+        <div class="selection-identity"><span class="selection-symbol">╱</span><div><strong>LANE-A03</strong><small>连接 P-05 → P-06</small></div></div>
+        <div class="property-section"><h4>通行规则</h4><div class="form-row"><label>通行方向</label><select><option>双向通行</option><option>P-05 → P-06</option><option>P-06 → P-05</option></select></div><div class="form-row mt-14"><label>最高速度</label><div class="input-unit"><input value="1.2"><span>m/s</span></div></div><div class="form-row mt-14"><label>适用 AMR 组</label><select><option>全部 AMR</option><option>LP-200 轻载组</option><option>潜伏顶升组</option></select></div></div>
+        <div class="property-section"><h4>几何信息</h4><div class="property-list"><div class="property"><span>起点</span><strong>P-05</strong></div><div class="property"><span>终点</span><strong>P-06</strong></div><div class="property"><span>长度</span><strong>8.42 m</strong></div><div class="property"><span>道路宽度</span><strong>1.80 m</strong></div></div></div>
+        <div class="property-section"><label class="property-toggle"><span><b>允许路径规划</b><small>关闭后任务不会使用该道路</small></span><input type="checkbox" checked></label></div>
+        <div class="property-section property-danger"><button class="btn danger small">删除道路</button></div>
+      </aside>
+    </div>`);
+}
+
+function mapCardPreview(mapId) {
+  const variants = {
+    "MAP-A": `<path d="M52 45h96v34h54v-22h94v67h-45v48H128v-28H52zM166 89h61v45h-61z"/><path class="map-wall-soft" d="M72 64h54v18H72zm12 58h62v18H84zm151-47h42v24h-42z"/><path class="map-route-line" d="M46 158h72v-35h88V96h76v54h48"/><circle cx="46" cy="158" r="5"/><circle cx="118" cy="123" r="5"/><circle cx="206" cy="96" r="5"/><circle cx="282" cy="150" r="5"/>`,
+    "MAP-B": `<path d="M45 49h84v30h35V48h138v41h-38v37h52v46H181v-31h-52v31H45v-48h39V91H45z"/><path class="map-wall-soft" d="M62 62h51v12H62zm121 2h95v13h-95zm16 86h93v13h-93z"/><path class="map-route-line" d="M38 112h74l31-24h82l28 38h70"/><circle cx="38" cy="112" r="5"/><circle cx="143" cy="88" r="5"/><circle cx="253" cy="126" r="5"/><circle cx="323" cy="126" r="5"/>`,
+    "MAP-C": `<path class="map-empty-outline" d="M46 48h112v45h58V58h105v111H210v-34h-64v34H46z"/><path class="map-wall-soft" d="M66 66h72v13H66zm170 11h64v14h-64z"/><path class="map-route-line muted-route" d="M55 145h82l42-31h78l54 27"/><circle cx="55" cy="145" r="5"/><circle cx="179" cy="114" r="5"/><circle cx="311" cy="141" r="5"/>`
+  };
+  return `<svg viewBox="0 0 360 210" role="img" aria-label="${mapId} 地图缩略图"><g class="map-preview-grid"><path d="M0 35h360M0 70h360M0 105h360M0 140h360M0 175h360M45 0v210M90 0v210M135 0v210M180 0v210M225 0v210M270 0v210M315 0v210"/></g><g class="map-preview-plan">${variants[mapId]}</g></svg>`;
+}
+
+function renderMapList() {
+  setActions(`<button class="btn primary js-new-map">＋ 创建地图</button>`);
+  const maps = [
+    {id:"MAP-A",name:"装配物流区",project:"CNC 物流一期",floor:"2F",source:"AMR-03 扫描",resources:"6 AMR · 14 设备",run:"V1.8",draft:"V1.9",state:"运行中",tone:"green",owner:"张凯",time:"今日 14:36",objects:"12 道路 · 32 端点"},
+    {id:"MAP-B",name:"CNC 二号线测试区",project:"CNC 物流一期",floor:"1F",source:"文件导入",resources:"2 AMR · 9 设备",run:"—",draft:"V0.4",state:"待发布",tone:"amber",owner:"林工",time:"昨日 16:12",objects:"8 道路 · 21 端点"},
+    {id:"MAP-C",name:"联调与仿真区",project:"联调专案",floor:"2F",source:"未添加底图",resources:"2 AMR · 4 设备",run:"—",draft:"V0.1",state:"初始化",tone:"gray",owner:"陈工",time:"07-29 14:35",objects:"草稿尚未绘制"}
+  ];
+  const cards = maps.map(map=>`<article class="map-library-card" data-go="map-editor.html" data-map-id="${map.id}" tabindex="0" role="link" aria-label="打开 ${map.name} 地图编辑器">
+    <div class="map-card-preview ${map.id === "MAP-C" ? "is-empty" : ""}">${mapCardPreview(map.id)}<span class="map-card-code">${map.id} / ${map.floor}</span><span class="map-card-state">${badge(map.state,map.tone)}</span><span class="map-card-open">打开地图编辑器 <i>↗</i></span></div>
+    <div class="map-card-body"><div class="map-card-title"><span><h3>${map.name}</h3><small>${map.project}</small></span><button class="map-card-settings js-map-manage" data-map-id="${map.id}" aria-label="编辑 ${map.name} 地图资料">•••</button></div>
+      <div class="map-card-facts"><span><small>扫描底图</small><strong>${map.source}</strong></span><span><small>资源范围</small><strong>${map.resources}</strong></span><span><small>逻辑对象</small><strong>${map.objects}</strong></span></div>
+      <footer><span>运行 <b>${map.run}</b> · 草稿 <b>${map.draft}</b></span><span>${map.owner} · ${map.time}</span></footer>
+    </div>
+  </article>`).join("");
+  content(`${toolbar({search:"搜索地图名称、编号或专案",filters:["全部楼层","全部状态","全部底图来源"],right:`<span class="muted">点击卡片进入地图编辑器</span>`})}<div class="map-library-grid">${cards}</div>`);
+}
+
+function renderMapLogs() {
+  setActions(`<button class="btn">导出日志</button>`);
+  const logs = [
+    ["今日 14:36","逻辑地图编辑","MAP-A","V1.9","张凯","调整 LANE-A03 通行方向与最高速度","变更已保存","blue"],
+    ["今日 14:21","资料修改","MAP-A","—","张凯","新增关联设备 BUF-03、GATE-03","3 个资源待定位","amber"],
+    ["今日 13:58","地图发布","MAP-A","V1.8","系统管理员","校验通过并下发至 AMR-01 — AMR-06","下发完成","green"],
+    ["昨日 16:12","逻辑地图编辑","MAP-B","V0.4","林工","新增 2 条导航道路与 4 个业务端点","变更已保存","blue"],
+    ["07-29 14:35","创建地图","MAP-C","V0.1","陈工","创建联调与仿真区，尚未添加扫描底图","初始化完成","gray"],
+    ["07-28 10:06","资料修改","MAP-B","—","林工","更换扫描底图文件 cnc_line2_v3.pgm","底图已更新","amber"]
+  ];
+  const rows = logs.map(log=>`<tr><td class="mono muted">${log[0]}</td><td><span class="map-log-type ${log[7]}">${log[1]}</span></td><td><strong class="id">${log[2]}</strong></td><td class="mono">${log[3]}</td><td>${log[4]}</td><td><strong>${log[5]}</strong><small class="cell-note">${log[6]}</small></td><td><button class="btn ghost small js-toast" data-message="已打开该操作的变更详情">查看</button></td></tr>`);
+  content(`${toolbar({search:"搜索地图、操作人或变更内容",filters:["全部地图","全部操作类型","全部操作人"],right:`<span class="muted">日志保留创建、编辑、修改、发布与下发记录</span>`})}${table(["操作时间","操作类型","地图","版本","操作人","变更内容",""],rows,["120px","105px","80px","75px","90px","auto","70px"])}`);
+}
+
+function renderMapEditor() {
+  setActions("");
+  content(`<div class="map-editor-workbench">
+    <header class="map-editor-topline">
+      <div class="editor-map-context"><button class="editor-exit" data-go="map-list.html" aria-label="返回地图管理">←</button><nav class="editor-path" aria-label="页面层级"><span>地图管理</span><i>/</i><span>装配物流区</span><i>/</i><strong>地图编辑器</strong></nav><span class="editor-map-id">MAP-A</span><span class="editor-version">V1.9 草稿</span><small>基于 V1.8</small><span class="editor-save-state"><i></i>已自动保存</span></div>
+      <div class="editor-history"><button class="icon-command" title="撤销">↶</button><button class="icon-command" title="重做">↷</button></div>
+      <div class="editor-primary-actions"><button class="btn small js-validate">校验</button><button class="btn small js-toast" data-message="V1.9 草稿已保存">保存</button><button class="btn primary small js-publish">发布与下发</button></div>
+    </header>
+    <div class="editor-shell map-canvas-shell">
+      <aside class="work-pane editor-object-pane" data-editor-pane="objects">
+        <div class="editor-panel-head"><strong>对象</strong><button class="panel-collapse" data-collapse-pane="objects" aria-label="折叠对象面板">‹</button></div>
+        <div class="editor-tree-search"><input placeholder="搜索对象"><button>＋</button></div>
+        <div class="map-object-tree">
+          <section><button class="tree-group"><i>⌄</i><b>扫描底图</b><small>1</small></button><div class="tree-node locked"><span class="tree-eye">◉</span><i class="layer-glyph scan"></i><b>SCN-260804-018</b><small>锁定</small></div></section>
+          <section><button class="tree-group"><i>⌄</i><b>导航道路</b><small>12</small></button>${["LANE-A01","LANE-A02","LANE-A03","LANE-B01"].map((x,i)=>`<button class="tree-node ${i===2?"selected":""}"><span class="tree-eye">◉</span><i class="layer-glyph lane"></i><b>${x}</b></button>`).join("")}</section>
+          <section><button class="tree-group"><i>⌄</i><b>业务端点</b><small>32</small></button>${[["CNC-01","取货"],["BUF-01","放货"],["CHG-01","充电"]].map(x=>`<button class="tree-node"><span class="tree-eye">◉</span><i class="layer-glyph point"></i><b>${x[0]}</b><small>${x[1]}</small></button>`).join("")}</section>
+          <section><button class="tree-group"><i>›</i><b>交通管制</b><small>12</small></button></section><section><button class="tree-group"><i>›</i><b>禁行与限速</b><small>5</small></button></section>
+        </div>
+        <button class="unplaced-resources js-unplaced-resources"><span><b>3</b>个资源待定位</span><i>›</i></button>
+      </aside>
+      <section class="map-pane editor-main-canvas" id="editorMap">
+        <div class="map-editor-commandbar compact">
+          <div class="command-tools"><button class="editor-command active" data-tool="select" title="选择 (V)">↖<small>选择</small></button><button class="editor-command" data-tool="pan">✋<small>平移</small></button><button class="editor-command" data-tool="lane">╱<small>道路</small></button><button class="editor-command" data-tool="point">●<small>端点</small></button><button class="editor-command" data-tool="device">▣<small>设备</small></button><button class="editor-command" data-tool="area">□<small>区域</small></button><button class="editor-command" data-tool="measure">↔<small>测距</small></button></div>
+          <div class="map-view-switch"><button data-map-view="scan">底图</button><button data-map-view="logic">逻辑图</button><button class="active" data-map-view="overlay">叠加</button></div>
+          <div class="zoom-tools"><button>−</button><span>100%</span><button>＋</button><button>适应</button></div>
+        </div>
+        <div class="map-stage editor-occupancy-stage">${occupancyGridMap()}</div>
+        <div class="map-canvas-legend compact"><span><i class="scan"></i>底图</span><span><i class="route"></i>导航道路</span><span><i class="zone"></i>管制区</span></div>
+      </section>
+      <aside class="work-pane editor-property-pane" data-editor-pane="properties">
+        <div class="editor-panel-head"><strong>对象属性</strong><button class="panel-collapse" data-collapse-pane="properties" aria-label="折叠属性面板">›</button></div>
+        <div class="selection-identity"><span class="selection-symbol">╱</span><div><strong>LANE-A03</strong><small>导航道路 · P-05 → P-06</small></div></div>
+        <div class="property-section"><h4>通行规则</h4><div class="form-row"><label>通行方向</label><select><option>双向通行</option><option>P-05 → P-06</option><option>P-06 → P-05</option></select></div><div class="form-row mt-14"><label>最高速度</label><div class="input-unit"><input value="1.2"><span>m/s</span></div></div><div class="form-row mt-14"><label>适用 AMR 组</label><select><option>全部 AMR</option><option>LP-200 轻载组</option><option>潜伏顶升组</option></select></div></div>
+        <div class="property-section"><h4>几何信息</h4><div class="property-list"><div class="property"><span>起点</span><strong>P-05</strong></div><div class="property"><span>终点</span><strong>P-06</strong></div><div class="property"><span>长度</span><strong>8.42 m</strong></div><div class="property"><span>道路宽度</span><strong>1.80 m</strong></div></div></div>
+        <div class="property-section"><label class="property-toggle"><span><b>允许路径规划</b><small>关闭后任务不会使用该道路</small></span><input type="checkbox" checked></label></div>
+      </aside>
+    </div>
+    <footer class="editor-statusbar" id="validationBar"><span>X 12.42 m</span><span>Y 7.36 m</span><span>缩放 100%</span><span>已选 LANE-A03</span><b>✓ 已保存</b><button class="js-validate">错误 0</button><button class="js-validate">警告 2</button></footer>
+  </div>`);
+}
+
+function renderMapSettingsDrawer(mapId) {
+  return `<div class="drawer-head"><h3>${mapId} · 地图资料</h3><button class="btn icon js-close-drawer">×</button></div><div class="drawer-body map-settings-drawer">
+    <div class="settings-tabs"><button class="active">基础信息</button><button>扫描底图</button><button>适用 AMR</button><button>现场设备</button><button>版本</button></div>
+    <section class="settings-section"><h4>基础信息</h4><div class="form-grid"><div class="form-row"><label>地图名称</label><input value="装配物流区"></div><div class="form-row"><label>所属楼层</label><select><option>2F</option></select></div><div class="form-row full"><label>所属专案</label><select><option>CNC 物流一期</option></select></div></div></section>
+    <section class="settings-section"><div class="settings-section-head"><h4>扫描底图</h4><button class="btn ghost small js-toast" data-message="已打开底图更换流程">更换</button></div><div class="map-source-summary"><i>SLAM</i><span><b>SCN-260804-018</b><small>AMR-03 · 0.05 m/px · 今日 13:42</small></span></div></section>
+    <section class="settings-section"><div class="settings-section-head"><h4>适用 AMR</h4><button class="btn ghost small js-edit-map-resources" data-resource-kind="AMR">编辑选择</button></div><div class="resource-chip-list"><span>AMR-01</span><span>AMR-02</span><span>AMR-03</span><span>AMR-04</span><span>AMR-05</span><span>AMR-06</span></div></section>
+    <section class="settings-section"><div class="settings-section-head"><h4>现场设备</h4><button class="btn ghost small js-edit-map-resources" data-resource-kind="设备">编辑选择</button></div><p class="muted">9 台 CNC · 3 个缓冲区 · 2 个自动门</p></section>
+  </div><div class="drawer-foot"><button class="btn js-close-drawer">取消</button><button class="btn primary js-toast" data-message="${mapId} 地图资料已保存">保存修改</button></div>`;
+}
+
 function renderTaskList() {
   setActions(`<span class="live-indicator"><i></i> 实时更新</span>`);
   const orders = [
@@ -554,7 +715,7 @@ function renderTaskList() {
     ["TSK-260804-005","REQ-260804-005","CNC-03","加工完成","CNC-03 → BUF-01","CNC 握手超时","AMR-04","异常","05:39","red",48],
     ["TSK-260804-006","REQ-260804-006","CNC-08","加工完成","CNC-08 → BUF-03","业务已关闭","AMR-02","已完成","12:05","green",100]
   ];
-  const rows = orders.map(o=>`<tr class="drill-row" data-go="task-detail.html"><td><strong class="id">${o[0]}</strong><small class="cell-note">${o[1]}</small></td><td><strong>${o[2]}</strong><small class="cell-note">${o[3]}</small></td><td>${o[4]}</td><td><span class="task-stage ${o[9]}"><i style="--progress:${o[10]}%"></i></span><small class="cell-note">${o[5]}</small></td><td class="table-link">${o[6]}</td><td>${badge(o[7],o[9])}</td><td class="mono ${o[9]==='red'?'text-red':'muted'}">${o[8]}</td><td><button class="btn ghost small" data-go="task-detail.html">查看 →</button></td></tr>`);
+  const rows = orders.map(o=>`<tr class="drill-row" data-go="task-detail.html"><td><strong class="id">${o[0]}</strong><small class="cell-note">${o[1]}</small></td><td><strong>${o[2]}</strong><small class="cell-note">${o[3]}</small></td><td>${o[4]}</td><td><span class="task-stage ${o[9]}"><i style="--progress:${o[10]}%"></i></span><small class="cell-note">${o[5]}</small></td><td class="table-link">${o[6]}</td><td>${badge(o[7],o[9])}</td><td class="mono ${o[9]==='red'?'text-red':'muted'}">${o[8]}</td><td><button class="btn ghost small" data-go="task-detail.html">查看</button></td></tr>`);
   content(`
     <div class="task-kpi-strip">
       <div><span>今日任务单</span><strong>36</strong><small>设备请求 36</small></div>
@@ -564,7 +725,7 @@ function renderTaskList() {
       <div><span>今日完成率</span><strong>96.4%</strong><small>已闭环 27 单</small></div>
     </div>
     ${toolbar({search:"搜索任务单、请求编号、设备或 AMR",filters:["全部任务类型","全部来源设备"],right:`<span class="muted">最后更新 11:28:42</span>`})}
-    ${table(["任务单 / 请求","请求来源","任务路线","当前阶段","执行 AMR","状态","持续时间",""],rows,["160px","110px","155px","155px","90px","85px","90px","65px"])}
+    ${table(["任务单 / 请求","请求来源","任务路线","当前阶段","执行 AMR","状态","持续时间",""],rows,["160px","110px","155px","155px","90px","85px","90px","72px"])}
   `);
 }
 
@@ -576,8 +737,8 @@ function renderTaskConfig() {
     ["CFG-003","空箱回收","空箱数量达阈值","请求机台 → REC-01","空箱回收流程","最近距离优先","启用","5"],
     ["CFG-004","紧急叫料","MES 紧急请求","WARE-01 → 请求设备","紧急配送流程","高优先级抢占","停用","0"]
   ];
-  const rows = configs.map(c=>`<tr class="drill-row" data-go="task-config-edit.html"><td class="id">${c[0]}</td><td><strong>${c[1]}</strong></td><td>${c[2]}</td><td>${c[3]}</td><td class="table-link">${c[4]}</td><td>${c[5]}</td><td>${badge(c[6],c[6]==="启用"?"green":"gray")}</td><td class="mono">${c[7]}</td><td><button class="btn ghost small" data-go="task-config-edit.html">编辑 →</button></td></tr>`);
-  content(`${toolbar({search:"搜索配置名称或触发设备",filters:["全部任务类型","全部状态"],right:`<button class="btn small">导出配置</button>`})}${table(["配置编号","任务类型","设备触发条件","默认路线","行为树","调度策略","状态","今日触发",""],rows,["95px","100px","150px","145px","130px","125px","75px","80px","65px"])}`);
+  const rows = configs.map(c=>`<tr class="drill-row" data-go="task-config-edit.html"><td class="id">${c[0]}</td><td><strong>${c[1]}</strong></td><td>${c[2]}</td><td>${c[3]}</td><td class="table-link">${c[4]}</td><td>${c[5]}</td><td>${badge(c[6],c[6]==="启用"?"green":"gray")}</td><td class="mono">${c[7]}</td><td><button class="btn ghost small" data-go="task-config-edit.html">编辑</button></td></tr>`);
+  content(`${toolbar({search:"搜索配置名称或触发设备",filters:["全部任务类型","全部状态"],right:`<button class="btn small">导出配置</button>`})}${table(["配置编号","任务类型","设备触发条件","默认路线","行为树","调度策略","状态","今日触发",""],rows,["95px","100px","150px","145px","130px","125px","75px","80px","72px"])}`);
 }
 
 function renderTaskConfigEditor() {
@@ -702,7 +863,7 @@ function renderDispatchRecordDetail() {
 
 function renderAgvList() {
   setActions(`<button class="btn primary js-toast" data-message="已打开新增 AMR 表单">＋ 新增 AMR</button>`);
-  const rows = AMRS.map(a=>`<tr class="drill-row" data-go="agv-detail.html"><td class="id">${a[0]}</td><td>LP-200</td><td>${badge("在线",a[5]==="red"?"amber":"green")}</td><td>${badge(a[1],a[5])}</td><td class="mono">${a[2]}</td><td>${a[3]}</td><td class="table-link">${a[4]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="agv-detail.html">查看详情 →</button></td></tr>`);
+  const rows = AMRS.map(a=>`<tr class="drill-row" data-go="agv-detail.html"><td class="id">${a[0]}</td><td>LP-200</td><td>${badge("在线",a[5]==="red"?"amber":"green")}</td><td>${badge(a[1],a[5])}</td><td class="mono">${a[2]}</td><td>${a[3]}</td><td class="table-link">${a[4]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="agv-detail.html">查看</button></td></tr>`);
   content(`${toolbar({search:"搜索 AMR 名称或编号",filters:["全部运行状态","全部型号","全部电量"]})}${table(["AMR","型号","连接","运行状态","电量","当前位置","当前任务","更新时间",""],rows,["95px","90px","80px","90px","70px","130px","145px","80px","70px"])}`);
 }
 
@@ -742,7 +903,7 @@ function renderAgvModels() {
 
 function renderDeviceList() {
   setActions(`<button class="btn primary js-toast" data-message="已打开新增设备表单">＋ 新增设备</button>`);
-  const rows = DEVICES.map(d=>`<tr class="drill-row" data-go="device-detail.html"><td class="id">${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${badge(d[3],d[7])}</td><td>${badge(d[4],"green")}</td><td>${d[5]}</td><td class="table-link">${d[6]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="device-detail.html">查看详情 →</button></td></tr>`);
+  const rows = DEVICES.map(d=>`<tr class="drill-row" data-go="device-detail.html"><td class="id">${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${badge(d[3],d[7])}</td><td>${badge(d[4],"green")}</td><td>${d[5]}</td><td class="table-link">${d[6]}</td><td class="mono muted">刚刚</td><td><button class="btn ghost small" data-go="device-detail.html">查看</button></td></tr>`);
   content(`${toolbar({search:"搜索设备名称或编号",filters:["全部设备状态","全部流水线","全部地图"]})}${table(["设备","类型","所属区域","运行状态","连接","地图","绑定点位","更新时间",""],rows,["90px","80px","100px","105px","75px","80px","100px","80px","70px"])}`);
 }
 
@@ -1027,7 +1188,7 @@ function renderLogs(system) {
     ["10:48:03","dev.frontend","API 测试","发送请求","POST /api/tasks","成功","200 · 42 ms"],
     ["10:43:58","admin","地图编辑","保存草稿","MAP-A V1.9","成功","修改 LANE-A03"],
     ["10:39:26","dev.dispatch","调度策略","修改参数","最近距离优先","成功","距离权重 70 → 75"],
-    ["10:31:11","demo.viewer","AMR 管理","查看详情","AMR-03","成功","只读访问"]
+    ["10:31:11","demo.viewer","AMR 管理","查看","AMR-03","成功","只读访问"]
   ];
   const sysRows = [
     ["10:52:16.042","INFO","task-service","AMR-03","TSK-260731-022","trc_f82a196e","Task created and queued"],
@@ -1036,7 +1197,7 @@ function renderLogs(system) {
     ["10:39:26.084","WARN","device-gateway","—","TSK-260731-020","trc_79de03b8","CNC-08 entered fault state"],
     ["10:31:11.492","INFO","dispatch-service","AMR-02","TSK-260731-018","trc_3ef1429a","Vehicle assigned in 22ms"]
   ];
-  const rows = (system?sysRows:opRows).map(r=>`<tr class="js-detail" data-kind="${system?"系统日志":"操作日志"}" data-id="${r[system?5:4]}">${r.map((v,i)=>`<td class="${i===0||i===(system?5:1)?"mono muted":""}">${system&&i===1?badge(v,v==="ERROR"?"red":v==="WARN"?"amber":"blue"):v}</td>`).join("")}<td><button class="btn ghost small">详情 →</button></td></tr>`);
+  const rows = (system?sysRows:opRows).map(r=>`<tr class="js-detail" data-kind="${system?"系统日志":"操作日志"}" data-id="${r[system?5:4]}">${r.map((v,i)=>`<td class="${i===0||i===(system?5:1)?"mono muted":""}">${system&&i===1?badge(v,v==="ERROR"?"red":v==="WARN"?"amber":"blue"):v}</td>`).join("")}<td><button class="btn ghost small">查看</button></td></tr>`);
   const headers = system?["时间","级别","服务","AMR","任务","Trace ID","日志摘要",""]:["时间","用户","模块","操作","对象","结果","说明",""];
   content(`${toolbar({search:system?"搜索日志或 Trace ID":"搜索用户、对象或操作",filters:[system?"全部级别":"全部模块","最近 1 小时"]})}${table(headers,rows,system?["115px","80px","130px","90px","145px","140px","auto","70px"]:["100px","120px","110px","110px","170px","75px","auto","70px"])}`);
 }
@@ -1059,7 +1220,7 @@ function renderGenericDetail(kind, id) {
         </div>
       </section>
     </div>
-    <div class="drawer-foot"><button class="btn js-close-drawer">关闭</button><button class="btn primary js-toast" data-message="已打开完整详情">查看完整详情</button></div>`;
+    <div class="drawer-foot"><button class="btn js-close-drawer">关闭</button><button class="btn primary js-toast" data-message="已打开完整详情">查看</button></div>`;
 }
 
 function openDrawer(kind, id) {
@@ -1091,10 +1252,28 @@ function toast(message) {
   setTimeout(() => el.remove(), 3200);
 }
 
+function mapCreateSteps(step) {
+  return `<div class="map-create-steps">${["基础信息","扫描底图","关联资源","创建草稿"].map((label,index)=>`<span class="${index + 1 <= step ? "active" : ""}"><b>${index + 1}</b>${label}</span>`).join("")}</div>`;
+}
+
+function openMapCreateWizard(step = 1) {
+  const bodies = {
+    1: `<div class="form-grid"><div class="form-row"><label>地图编号 *</label><input value="MAP-D"></div><div class="form-row"><label>地图名称 *</label><input value="三楼装配物流区"></div><div class="form-row"><label>所属专案 *</label><select><option>FXXXXXN CNC 物流一期</option></select></div><div class="form-row"><label>所属楼层 *</label><select><option>2F</option><option>1F</option><option>3F</option></select></div><div class="form-row"><label>坐标单位</label><select><option>米 (m)</option></select></div><div class="form-row"><label>地图用途</label><select><option>生产运行</option><option>测试联调</option><option>仿真</option></select></div></div>`,
+    2: `<div class="map-source-choice"><label class="selected"><input type="radio" name="mapSource" checked><i>AMR</i><span><b>从 AMR 获取扫描地图</b><small>选择已完成扫描的在线车辆和地图记录</small></span></label><label><input type="radio" name="mapSource"><i>UP</i><span><b>上传地图文件</b><small>导入研发支持的栅格或点云地图</small></span></label></div><div class="form-grid mt-14"><div class="form-row"><label>地图来源 AMR *</label><select><option>AMR-03 · LP-200 · 在线</option><option>AMR-01 · LP-200 · 在线</option></select></div><div class="form-row"><label>扫描记录 *</label><select><option>SCN-260804-018 · 今日 13:42</option></select></div><div class="form-row"><label>分辨率</label><input value="0.05 m / px" readonly></div><div class="form-row"><label>地图尺寸</label><input value="38.0 × 26.0 m" readonly></div></div>`,
+    3: `<div class="resource-association-summary"><span><b>6</b>可选 AMR</span><span><b>16</b>可选设备</span><span><b>0</b>已定位</span></div><div class="resource-association-list"><label><input type="checkbox" checked><i>AM</i><span><b>LP-200 车队</b><small>AMR-01 — AMR-06 · 允许加载该地图</small></span><em>6 台</em></label><label><input type="checkbox" checked><i>DV</i><span><b>CNC 三号线设备组</b><small>CNC-09 — CNC-14 · 进入编辑器后定位</small></span><em>6 台</em></label><label><input type="checkbox" checked><i>BF</i><span><b>成品缓冲区</b><small>BUF-03 / BUF-04 · 进入编辑器后定位</small></span><em>2 个</em></label><label><input type="checkbox" checked><i>GT</i><span><b>交通设备</b><small>GATE-03 / LIFT-02 · 进入编辑器后定位</small></span><em>2 个</em></label></div><p class="form-help mt-14">路口、窄通道和会车区将在逻辑地图中绘制创建。</p>`,
+    4: `<div class="map-create-result"><span class="result-map-code">MAP-D</span><div><h3>三楼装配物流区</h3><p>2F · 生产运行 · 草稿 V0.1</p></div></div><div class="check-list mt-14"><div class="pass">✓ 已选择 AMR-03 扫描底图</div><div class="pass">✓ 已关联 6 台适用 AMR</div><div class="pass">✓ 已关联 10 个现场设备</div><div class="warn">! 设备、站点和交通资源将在编辑器中定位</div></div><div class="map-create-next"><b>创建后将发生什么？</b><span>建立地图项目 → 生成逻辑地图草稿 → 进入编辑器完成资源定位</span></div>`
+  };
+  const actions = ["", "下一步：添加底图", "下一步：关联资源", "下一步：确认", "创建并打开编辑器"];
+  openModal("创建地图项目", `${mapCreateSteps(step)}${bodies[step]}`, actions[step]);
+  const modal = document.getElementById("modal");
+  modal.dataset.workflow = "map-create";
+  modal.dataset.step = String(step);
+}
+
 function bindCommonEvents() {
   document.addEventListener("click", event => {
     const go = event.target.closest("[data-go]");
-    if (go) location.href = pageHref(go.dataset.go);
+    if (go && !event.target.closest(".js-map-manage")) location.href = pageHref(go.dataset.go);
 
     const detail = event.target.closest(".js-detail");
     if (detail) openDrawer(detail.dataset.kind || "对象", detail.dataset.id || "—");
@@ -1124,6 +1303,16 @@ function bindCommonEvents() {
     }
 
     if (event.target.closest(".js-modal-confirm")) {
+      const workflowModal = document.getElementById("modal");
+      if (workflowModal.dataset.workflow === "map-create") {
+        const step = Number(workflowModal.dataset.step || 1);
+        if (step < 4) openMapCreateWizard(step + 1);
+        else {
+          closeModal();
+          toast("地图项目 MAP-D 已创建，逻辑地图草稿 V0.1 已生成");
+        }
+        return;
+      }
       const floor = document.querySelector(".js-context-floor");
       const map = document.querySelector(".js-context-map");
       if (floor && map) {
@@ -1144,10 +1333,21 @@ function bindCommonEvents() {
       document.querySelectorAll(".data-table tbody tr").forEach(row => {
         row.style.display = row.textContent.toLowerCase().includes(term) ? "" : "none";
       });
+      document.querySelectorAll(".map-library-card").forEach(card => {
+        card.style.display = card.textContent.toLowerCase().includes(term) ? "" : "none";
+      });
     }
     if (event.target.classList.contains("js-range")) {
       const out = event.target.nextElementSibling;
       out.textContent = `${event.target.value}${out.textContent.includes("%") ? "%" : ""}`;
+    }
+  });
+
+  document.addEventListener("keydown", event => {
+    const mapCard = event.target.closest(".map-library-card[data-go]");
+    if (mapCard && (event.key === "Enter" || event.key === " ")) {
+      event.preventDefault();
+      location.href = pageHref(mapCard.dataset.go);
     }
   });
 
@@ -1181,16 +1381,71 @@ function bindCommonEvents() {
       tool.classList.add("active");
       toast(`已切换到${tool.textContent.trim()}工具`);
     }
+    const command = event.target.closest(".editor-command");
+    if (command) {
+      document.querySelectorAll(".editor-command").forEach(x => x.classList.remove("active"));
+      command.classList.add("active");
+      toast(`已切换到${command.querySelector("small")?.textContent || "编辑"}工具`);
+    }
+    const editorTab = event.target.closest("[data-editor-tab]");
+    if (editorTab) {
+      document.querySelectorAll("[data-editor-tab]").forEach(x => x.classList.toggle("active", x === editorTab));
+      document.querySelectorAll("[data-editor-panel]").forEach(x => x.classList.toggle("hidden", x.dataset.editorPanel !== editorTab.dataset.editorTab));
+    }
+    const mapView = event.target.closest("[data-map-view]");
+    if (mapView) {
+      document.querySelectorAll("[data-map-view]").forEach(x => x.classList.toggle("active", x === mapView));
+      const stage = document.querySelector(".editor-occupancy-stage");
+      if (stage) stage.dataset.view = mapView.dataset.mapView;
+      toast(`已切换为${mapView.textContent.trim()}视图`);
+    }
+    const placeResource = event.target.closest(".js-place-resource");
+    if (placeResource) {
+      toast(`${placeResource.dataset.resource} 已进入定位模式，请在画布中选择位置`);
+    }
+    const mapManage = event.target.closest(".js-map-manage, .map-more");
+    if (mapManage) {
+      const mapId = mapManage.dataset.mapId || mapManage.closest("[data-map-id]")?.dataset.mapId || "MAP-A";
+      document.getElementById("drawer").innerHTML = renderMapSettingsDrawer(mapId);
+      document.getElementById("drawerBackdrop").classList.add("open");
+    }
+    const collapsePane = event.target.closest("[data-collapse-pane]");
+    if (collapsePane) {
+      const shell = document.querySelector(".map-canvas-shell");
+      if (shell) {
+        const pane = collapsePane.dataset.collapsePane;
+        const collapsed = shell.classList.toggle(`${pane}-collapsed`);
+        collapsePane.textContent = pane === "objects" ? (collapsed ? "›" : "‹") : (collapsed ? "‹" : "›");
+        collapsePane.setAttribute("aria-label", `${collapsed ? "展开" : "折叠"}${pane === "objects" ? "对象" : "属性"}面板`);
+      }
+    }
+    if (event.target.closest(".js-unplaced-resources")) {
+      openModal("待定位资源", `<div class="resource-association-list"><label><input type="checkbox"><i>DV</i><span><b>CNC-09</b><small>CNC 设备 · 尚未设置本体位置与停靠点</small></span><em>待定位</em></label><label><input type="checkbox"><i>BF</i><span><b>BUF-03</b><small>成品缓冲区 · 尚未设置停靠点</small></span><em>待定位</em></label><label><input type="checkbox"><i>GT</i><span><b>GATE-03</b><small>自动门 · 尚未定位</small></span><em>待定位</em></label></div>`, "进入放置模式");
+    }
+    const editMapResources = event.target.closest(".js-edit-map-resources");
+    if (editMapResources) {
+      openModal(`编辑${editMapResources.dataset.resourceKind || "地图资源"}`, `<div class="resource-association-list"><label><input type="checkbox" checked><i>01</i><span><b>已选资源组</b><small>保存后新增资源会进入地图编辑器的待定位列表</small></span><em>已选</em></label><label><input type="checkbox"><i>02</i><span><b>三号线扩展资源</b><small>未关联</small></span><em>可选</em></label></div>`, "保存选择");
+    }
     if (event.target.closest(".js-validate")) {
       const bar = document.getElementById("validationBar");
       if (bar) bar.innerHTML = `<b style="color:var(--green)">校验通过</b><span>0 个错误</span><span style="color:var(--amber)">2 个警告</span><span class="link">查看警告</span>`;
       toast("地图校验完成");
     }
     if (event.target.closest(".js-publish")) {
-      openModal("发布地图 MAP-A V1.9", `<p>地图校验已通过。发布后，交通管制与任务执行将使用这个版本。</p><div class="detail-grid" style="grid-template-columns:repeat(2,1fr)"><div class="detail-item"><label>变更</label><strong>道路 1 · 点位 2</strong></div><div class="detail-item"><label>目标范围</label><strong>当前专案</strong></div></div>`, "发布地图");
+      openModal("发布并下发 MAP-A V1.9", `<div class="publish-readiness"><span class="pass">✓ 导航拓扑连通</span><span class="pass">✓ 14 台设备已定位</span><span class="pass">✓ 12 个管制资源配置完整</span></div><div class="form-grid mt-14"><div class="form-row"><label>版本说明</label><input value="调整 LANE-A03 并新增 BUF-03"></div><div class="form-row"><label>激活方式</label><select><option>AMR 空闲后自动激活</option><option>仅发布，稍后手动下发</option></select></div><div class="form-row full"><label>目标 AMR</label><div class="target-amr-list"><label><input type="checkbox" checked> AMR-01</label><label><input type="checkbox" checked> AMR-02</label><label><input type="checkbox" checked> AMR-03</label><label><input type="checkbox" checked> AMR-04</label></div><span class="form-help">运行中车辆会等待任务结束，不会在行驶中切换地图。</span></div></div>`, "发布并下发");
     }
-    if (event.target.closest(".js-new-map") || event.target.closest(".js-map-import")) {
+    if (event.target.closest(".js-new-map")) {
+      openMapCreateWizard(1);
+    }
+    if (event.target.closest(".js-map-import")) {
       openModal("选择地图创建方式", `<div class="map-source-grid"><button class="map-source-card js-map-source" data-source="scan"><span>AMR</span><strong>从 AMR 扫描创建</strong><small>选择在线车辆扫描现场，生成新的基础栅格地图</small></button><button class="map-source-card js-map-source" data-source="blank"><span>＋</span><strong>创建空白地图</strong><small>先建立地图记录，再手动编辑全部图层</small></button><button class="map-source-card js-map-source" data-source="file"><span>UP</span><strong>导入地图文件</strong><small>上传已有地图作为新的基础地图版本</small></button></div>`, "取消");
+    }
+    if (event.target.closest(".js-map-resource-manager")) {
+      openModal("关联地图资源 · MAP-A", `<div class="resource-association-summary"><span><b>6</b>适用 AMR</span><span><b>14</b>现场设备</span><span><b>3</b>待定位</span></div><div class="resource-association-list"><label><input type="checkbox" checked><i>AM</i><span><b>AMR-01 — AMR-06</b><small>LP-200 · 允许加载该地图</small></span><em>已关联</em></label><label><input type="checkbox" checked><i>DV</i><span><b>CNC-01 — CNC-09</b><small>CNC 设备组 · 8 台已定位</small></span><em>1 台待定位</em></label><label><input type="checkbox" checked><i>BF</i><span><b>BUF-01 — BUF-03</b><small>成品缓冲区 · 2 个已定位</small></span><em>1 个待定位</em></label><label><input type="checkbox" checked><i>GT</i><span><b>GATE-01 — GATE-03</b><small>自动门 · 2 个已定位</small></span><em>1 个待定位</em></label></div><p class="form-help mt-14">路口、窄通道和会车区属于逻辑管制资源，请在地图编辑器中绘制。</p>`, "保存关联");
+    }
+    const mapOverview = event.target.closest(".js-map-overview");
+    if (mapOverview) {
+      openModal(`地图配置 · ${mapOverview.dataset.id}`, `<div class="detail-grid"><div class="detail-item"><label>扫描底图</label><strong>AMR-03 / 0.05 m</strong></div><div class="detail-item"><label>坐标原点</label><strong>X 0.00 / Y 0.00</strong></div><div class="detail-item"><label>运行版本</label><strong>V1.8</strong></div><div class="detail-item"><label>编辑草稿</label><strong>V1.9</strong></div><div class="detail-item"><label>适用 AMR</label><strong>6 台</strong></div><div class="detail-item"><label>资源完整度</label><strong>92%</strong></div></div>`, "打开编辑器");
     }
     const mapSource = event.target.closest(".js-map-source");
     if (mapSource?.dataset.source === "scan") {
@@ -1257,6 +1512,7 @@ function renderPage() {
   if (PAGE_ID === "dashboard") return renderDashboard();
   if (PAGE_ID.startsWith("traffic-")) return renderTraffic();
   if (PAGE_ID === "map-list") return renderMapList();
+  if (PAGE_ID === "map-logs") return renderMapLogs();
   if (PAGE_ID === "map-editor") return renderMapEditor();
   if (PAGE_ID === "task-list") return renderTaskList();
   if (PAGE_ID === "task-detail") return renderTaskDetail();
@@ -1282,4 +1538,3 @@ renderPage();
 bindCommonEvents();
 updateClock();
 setInterval(updateClock, 1000);
-
